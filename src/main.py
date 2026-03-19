@@ -16,49 +16,61 @@ from roadmap_generator import generate_improvement_roadmap, generate_executive_s
 from pdf_generator import generate_all_pdfs
 
 
-def analyze_policy(policy_path, output_dir='output'):
+def analyze_policy(policy_path, output_dir='output', progress_callback=None):
     """
     Main function to analyze policy document and generate comprehensive report.
     
     Args:
         policy_path: Path to policy document (TXT, PDF, or DOCX)
         output_dir: Directory to save output reports
+        progress_callback: Optional callable(stage_number) for progress tracking
     
     Returns:
         Dictionary containing all analysis results
     """
+    def _progress(stage):
+        if progress_callback:
+            progress_callback(stage)
     print(f"\n{'='*60}")
     print("LOCAL LLM POLICY GAP ANALYSIS MODULE")
     print(f"{'='*60}\n")
     
     # Load policy document
+    _progress(1)
     print(f"[1/6] Loading policy document: {policy_path}")
     policy_content = read_policy_document(policy_path)
     policy_name = Path(policy_path).stem
     print(f"      Policy loaded: {len(policy_content)} characters\n")
     
     # Load NIST framework
+    _progress(2)
     print("[2/6] Loading NIST Cybersecurity Framework standards...")
-    framework_path = os.path.join('data', 'reference')
+    # Resolve data/reference relative to project root, not cwd
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    framework_path = os.path.join(project_root, 'data', 'reference')
     nist_framework = load_nist_framework(framework_path)
     print(f"      Framework loaded: {len(nist_framework)} characters\n")
     
     # Analyze gaps
+    _progress(3)
     print("[3/6] Analyzing policy gaps (this may take 1-2 minutes)...")
     gap_analysis = analyze_policy_gaps(policy_content, nist_framework)
     print(f"      Gap analysis complete: {len(gap_analysis)} characters\n")
     
     # Revise policy
+    _progress(4)
     print("[4/6] Generating revised policy (this may take 2-3 minutes)...")
     revised_policy = revise_policy(policy_content, gap_analysis, nist_framework)
     print(f"      Revised policy generated: {len(revised_policy)} characters\n")
     
     # Generate roadmap
+    _progress(5)
     print("[5/6] Creating improvement roadmap (this may take 1-2 minutes)...")
     roadmap = generate_improvement_roadmap(gap_analysis, policy_name)
     print(f"      Roadmap generated: {len(roadmap)} characters\n")
     
     # Generate executive summary
+    _progress(6)
     print("[6/6] Generating executive summary...")
     exec_summary = generate_executive_summary(gap_analysis, roadmap)
     print(f"      Executive summary complete\n")
@@ -185,7 +197,26 @@ Note: Requires Ollama with gemma3:4b model installed.
         help='Output directory for reports (default: output)'
     )
     
+    parser.add_argument(
+        '--serve',
+        action='store_true',
+        help='Start LAN web server for multi-device access'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=5000,
+        help='Port for web server (default: 5000)'
+    )
+    
     args = parser.parse_args()
+    
+    if args.serve:
+        # Start the Flask web server
+        from server import run_server
+        run_server(host='0.0.0.0', port=args.port)
+        return
     
     if not args.policy and not args.batch:
         parser.print_help()

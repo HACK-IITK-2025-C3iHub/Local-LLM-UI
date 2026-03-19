@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Policy Gap Analyzer — Upload</title>
+    <meta name="description" content="Upload cybersecurity policies for automated NIST CSF gap analysis using a local LLM.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* ===== RESET & VARIABLES ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary:    #06080f;
+            --bg-secondary:  #0c1120;
+            --bg-card:       rgba(15, 23, 42, 0.6);
+            --bg-card-hover: rgba(22, 33, 62, 0.7);
+            --bg-card-solid: #111b30;
+            --accent:        #6366f1;
+            --accent-light:  #818cf8;
+            --accent-glow:   rgba(99,102,241,.25);
+            --accent-deep:   #4f46e5;
+            --violet:        #7c3aed;
+            --violet-glow:   rgba(124,58,237,.2);
+            --green:         #22c55e;
+            --green-glow:    rgba(34,197,94,.2);
+            --emerald:       #10b981;
+            --amber:         #f59e0b;
+            --red:           #ef4444;
+            --cyan:          #06b6d4;
+            --cyan-glow:     rgba(6,182,212,.15);
+            --rose:          #f43f5e;
+            --text-primary:  #f1f5f9;
+            --text-secondary:#94a3b8;
+            --text-muted:    #64748b;
+            --border:        rgba(30, 41, 59, 0.8);
+            --border-light:  rgba(51, 65, 85, 0.5);
+            --radius:        14px;
+            --radius-lg:     22px;
+            --radius-xl:     28px;
+            --shadow:        0 4px 24px rgba(0,0,0,.5);
+            --shadow-lg:     0 8px 40px rgba(0,0,0,.6);
+            --shadow-glow:   0 0 30px rgba(99,102,241,.12);
+            --transition:    .3s cubic-bezier(.4,0,.2,1);
+            --transition-fast: .15s ease;
+            --blur:          16px;
+        }
+
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.65;
+            overflow-x: hidden;
+        }
+
+        /* ===== PARTICLE CANVAS ===== */
+        #particleCanvas {
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== AMBIENT GLOW MESH ===== */
+        .bg-mesh {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background:
+                radial-gradient(ellipse 800px 500px at 15% 15%, rgba(99,102,241,.07), transparent),
+                radial-gradient(ellipse 600px 600px at 85% 80%, rgba(6,182,212,.05), transparent),
+                radial-gradient(ellipse 500px 400px at 50% 50%, rgba(124,58,237,.04), transparent);
+            animation: meshFloat 25s ease-in-out infinite alternate;
+        }
+        @keyframes meshFloat {
+            0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+            50%  { transform: translate(-20px, 15px) scale(1.03) rotate(0.5deg); }
+            100% { transform: translate(-35px, 25px) scale(1.06) rotate(-0.5deg); }
+        }
+
+        /* ===== LAYOUT ===== */
+        .container {
+            position: relative; z-index: 1;
+            max-width: 740px; margin: 0 auto;
+            padding: 2.5rem 1.5rem 5rem;
+        }
+
+        /* ===== ENTRANCE ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(.92); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes shimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        @keyframes gradientShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes breathe {
+            0%, 100% { box-shadow: 0 0 8px var(--glow-color, var(--accent-glow)); }
+            50%      { box-shadow: 0 0 20px var(--glow-color, var(--accent-glow)); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: .35; }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes ripple {
+            to { transform: scale(4); opacity: 0; }
+        }
+        @keyframes ringPulse {
+            0%   { transform: scale(1); opacity: .6; }
+            100% { transform: scale(1.8); opacity: 0; }
+        }
+        @keyframes checkBounce {
+            0%   { transform: scale(0); opacity: 0; }
+            50%  { transform: scale(1.3); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-in { animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) both; }
+        .animate-in-1 { animation-delay: .05s; }
+        .animate-in-2 { animation-delay: .15s; }
+        .animate-in-3 { animation-delay: .25s; }
+        .animate-in-4 { animation-delay: .35s; }
+        .animate-in-5 { animation-delay: .45s; }
+
+        /* ===== HEADER ===== */
+        header { text-align: center; margin-bottom: 2.5rem; }
+        .logo-badge {
+            display: inline-flex; align-items: center; gap: .6rem;
+            background: linear-gradient(135deg, var(--accent), var(--violet));
+            padding: .45rem 1.15rem; border-radius: 999px;
+            font-size: .72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .1em; color: #fff; margin-bottom: 1.2rem;
+            position: relative;
+            box-shadow: 0 2px 20px var(--accent-glow),
+                        inset 0 1px 0 rgba(255,255,255,.15);
+        }
+        .logo-badge::before {
+            content: '';
+            position: absolute; inset: -3px; border-radius: 999px;
+            background: linear-gradient(135deg, var(--accent), var(--violet));
+            z-index: -1; opacity: .4;
+            animation: ringPulse 3s ease-in-out infinite;
+        }
+        .logo-badge .dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green), 0 0 16px rgba(34,197,94,.3);
+            animation: pulse 2s infinite;
+        }
+        header h1 {
+            font-size: 2.4rem; font-weight: 900;
+            letter-spacing: -.02em;
+            background: linear-gradient(135deg, #fff, var(--accent-light), var(--cyan), var(--accent-light), #fff);
+            background-size: 300% 100%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 6s ease infinite;
+            margin-bottom: .6rem;
+            text-shadow: 0 0 40px rgba(99,102,241,.15);
+        }
+        header p {
+            color: var(--text-secondary); font-size: .95rem;
+            max-width: 520px; margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* ===== QUEUE STATUS BAR ===== */
+        .queue-bar {
+            display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+        }
+        .queue-pill {
+            display: flex; align-items: center; gap: .4rem;
+            background: var(--bg-card);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--border);
+            padding: .4rem 1rem; border-radius: 999px;
+            font-size: .78rem; color: var(--text-secondary);
+            transition: all var(--transition);
+        }
+        .queue-pill:hover { border-color: var(--border-light); }
+        .queue-pill .num {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700; font-size: .85rem;
+        }
+        .queue-pill .num.zero  { color: var(--green); text-shadow: 0 0 12px rgba(34,197,94,.4); }
+        .queue-pill .num.busy  { color: var(--amber); text-shadow: 0 0 12px rgba(245,158,11,.4);
+            --glow-color: rgba(245,158,11,.15); animation: breathe 2s ease-in-out infinite; }
+        .queue-pill .num.full  { color: var(--red); text-shadow: 0 0 12px rgba(239,68,68,.4); }
+
+        /* ===== CARD (Glassmorphism) ===== */
+        .card {
+            position: relative;
+            background: var(--bg-card);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            padding: 2.25rem;
+            box-shadow: var(--shadow), var(--shadow-glow);
+            transition: border-color var(--transition), box-shadow var(--transition);
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: var(--radius-xl);
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(99,102,241,.3), transparent, rgba(6,182,212,.2));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .card:hover::before { opacity: 1; }
+        .card:hover { border-color: rgba(99,102,241,.25); }
+        .card h2 {
+            font-size: 1.2rem; font-weight: 800;
+            margin-bottom: .35rem;
+            letter-spacing: -.01em;
+        }
+        .card .subtitle {
+            font-size: .85rem; color: var(--text-secondary);
+            margin-bottom: 1.75rem;
+        }
+
+        /* Spotlight effect on card hover */
+        .card-spotlight {
+            position: absolute; inset: 0;
+            pointer-events: none;
+            border-radius: var(--radius-xl);
+            opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .card:hover .card-spotlight { opacity: 1; }
+
+        /* ===== FLASH MESSAGES ===== */
+        .flash {
+            padding: .8rem 1.15rem; border-radius: var(--radius);
+            font-size: .85rem; margin-bottom: 1.25rem;
+            display: flex; align-items: center; gap: .5rem;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            animation: slideDown .4s ease both;
+        }
+        .flash.error {
+            background: rgba(239,68,68,.1);
+            border: 1px solid rgba(239,68,68,.25);
+            color: #fca5a5;
+        }
+        .flash.success {
+            background: rgba(34,197,94,.1);
+            border: 1px solid rgba(34,197,94,.25);
+            color: #86efac;
+        }
+
+        /* ===== DROP ZONE ===== */
+        .drop-zone {
+            border: 2px dashed var(--border-light);
+            border-radius: var(--radius-lg);
+            padding: 3rem 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .drop-zone::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(135deg, var(--accent-glow), transparent, var(--cyan-glow));
+            opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .drop-zone:hover::after,
+        .drop-zone.dragover::after { opacity: 1; }
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: var(--accent);
+            box-shadow: 0 0 24px var(--accent-glow);
+        }
+        .drop-zone .icon {
+            font-size: 3rem; margin-bottom: .85rem;
+            position: relative; z-index: 1;
+            transition: transform var(--transition);
+        }
+        .drop-zone:hover .icon { transform: scale(1.08) translateY(-4px); }
+        .drop-zone p { color: var(--text-secondary); font-size: .9rem; position: relative; z-index: 1; }
+        .drop-zone .formats {
+            display: flex; justify-content: center; gap: .5rem;
+            margin-top: .85rem; position: relative; z-index: 1;
+        }
+        .drop-zone .formats span {
+            background: var(--bg-secondary); border: 1px solid var(--border);
+            padding: .2rem .65rem; border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .68rem; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: .04em;
+            transition: all var(--transition);
+        }
+        .drop-zone:hover .formats span { border-color: var(--border-light); }
+        .drop-zone input[type="file"] {
+            position: absolute; inset: 0; opacity: 0; cursor: pointer; z-index: 2;
+        }
+        .file-name-display {
+            display: none; margin-top: 1rem;
+            font-size: .82rem; color: var(--accent-light);
+            font-weight: 600; position: relative; z-index: 1;
+        }
+        .file-name-display.visible { display: flex; align-items: center; justify-content: center; gap: .4rem; }
+
+        /* Upload success animation */
+        .drop-zone.file-ready {
+            border-color: var(--green);
+            border-style: solid;
+        }
+        .drop-zone.file-ready::after {
+            background: linear-gradient(135deg, var(--green-glow), transparent);
+            opacity: 1;
+        }
+        .check-burst {
+            display: none;
+            font-size: 2.2rem;
+            position: relative; z-index: 1;
+        }
+        .check-burst.visible {
+            display: block;
+            animation: checkBounce .5s cubic-bezier(.34,1.56,.64,1) both;
+        }
+
+        /* ===== SUBMIT BUTTON ===== */
+        .btn-submit {
+            display: block; width: 100%; margin-top: 1.75rem;
+            padding: .9rem; border: none; border-radius: var(--radius);
+            background: linear-gradient(135deg, var(--accent), var(--violet));
+            background-size: 200% 200%;
+            color: #fff; font-family: inherit;
+            font-size: .95rem; font-weight: 700;
+            cursor: pointer; letter-spacing: .03em;
+            transition: all var(--transition);
+            box-shadow: 0 4px 20px var(--accent-glow);
+            position: relative; overflow: hidden;
+        }
+        .btn-submit::before {
+            content: '';
+            position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+            transition: left .5s ease;
+        }
+        .btn-submit:hover::before { left: 100%; }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px var(--accent-glow);
+            background-size: 100% 100%;
+        }
+        .btn-submit:active { transform: translateY(0); }
+        .btn-submit:disabled {
+            opacity: .4; cursor: not-allowed; transform: none;
+            box-shadow: none;
+        }
+        .btn-submit:disabled::before { display: none; }
+
+        /* Ripple */
+        .btn-submit .ripple-circle {
+            position: absolute; border-radius: 50%;
+            background: rgba(255,255,255,.25);
+            transform: scale(0); animation: ripple .6s linear;
+            pointer-events: none;
+        }
+
+        /* ===== INFO GRID ===== */
+        .info-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin-top: 2.5rem;
+        }
+        .info-item {
+            position: relative;
+            background: var(--bg-card);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1.4rem;
+            transition: all var(--transition);
+            overflow: hidden;
+            cursor: default;
+        }
+        .info-item::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: var(--radius); padding: 1px;
+            background: linear-gradient(135deg, rgba(99,102,241,.25), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .info-item:hover::before { opacity: 1; }
+        .info-item:hover {
+            border-color: rgba(99,102,241,.2);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 30px rgba(0,0,0,.3), 0 0 20px var(--accent-glow);
+        }
+        .info-item .info-icon {
+            font-size: 1.5rem; margin-bottom: .6rem;
+            display: inline-block;
+            transition: transform var(--transition);
+        }
+        .info-item:hover .info-icon { transform: scale(1.15) rotate(-5deg); }
+        .info-item h3 {
+            font-size: .82rem; font-weight: 700; margin-bottom: .3rem;
+            letter-spacing: .01em;
+        }
+        .info-item p {
+            font-size: .73rem; color: var(--text-muted); line-height: 1.6;
+        }
+
+        /* ===== FOOTER ===== */
+        footer {
+            text-align: center; margin-top: 3.5rem;
+            font-size: .73rem; color: var(--text-muted);
+            letter-spacing: .02em;
+        }
+        footer strong { color: var(--text-secondary); font-weight: 600; }
+        footer a { color: var(--accent-light); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+        .footer-divider {
+            width: 40px; height: 2px; margin: 0 auto 1rem;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 999px;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            .container { padding: 1.5rem 1rem 3.5rem; }
+            header h1 { font-size: 1.7rem; }
+            .card { padding: 1.5rem; border-radius: var(--radius-lg); }
+            .drop-zone { padding: 2rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="particleCanvas"></canvas>
+    <div class="bg-mesh"></div>
+
+    <div class="container">
+        <!-- HEADER -->
+        <header class="animate-in animate-in-1">
+            <div class="logo-badge">
+                <div class="dot"></div>
+                Offline &bull; NIST CSF
+            </div>
+            <h1>Policy Gap Analyzer</h1>
+            <p>Upload a cybersecurity policy for automated gap analysis against NIST Cybersecurity Framework standards — powered entirely by a local LLM.</p>
+        </header>
+
+        <!-- QUEUE STATUS -->
+        <div class="queue-bar animate-in animate-in-2" id="queueBar">
+            <div class="queue-pill">
+                Queued&nbsp;
+                <span class="num {% if queue_info.queued == 0 %}zero{% elif queue_info.queued >= queue_info.max_queue_size %}full{% else %}busy{% endif %}">{{ queue_info.queued }}</span>
+            </div>
+            <div class="queue-pill">
+                Running&nbsp;
+                <span class="num {% if queue_info.running > 0 %}busy{% else %}zero{% endif %}">{{ queue_info.running }}</span>
+            </div>
+            <div class="queue-pill">
+                Completed&nbsp;
+                <span class="num zero">{{ queue_info.done }}</span>
+            </div>
+        </div>
+
+        <!-- FLASH MESSAGES -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash {{ category }}">
+            {% if category == 'error' %}⚠️{% else %}✅{% endif %}
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- UPLOAD CARD -->
+        <div class="card animate-in animate-in-3" id="uploadCard">
+            <div class="card-spotlight" id="cardSpotlight"></div>
+            <h2>Upload Policy Document</h2>
+            <p class="subtitle">Drag & drop or click to select a policy file</p>
+
+            <form method="POST" action="/upload" enctype="multipart/form-data" id="uploadForm">
+                <div class="drop-zone" id="dropZone">
+                    <div class="icon" id="dropIcon">📄</div>
+                    <div class="check-burst" id="checkBurst">✅</div>
+                    <p id="dropText">Drop your policy file here</p>
+                    <div class="formats">
+                        <span>.txt</span>
+                        <span>.pdf</span>
+                        <span>.docx</span>
+                    </div>
+                    <input type="file" name="policy_file" id="fileInput"
+                           accept=".txt,.pdf,.docx">
+                    <div class="file-name-display" id="fileName"></div>
+                </div>
+
+                <button type="submit" class="btn-submit" id="submitBtn" disabled>
+                    🚀 Analyze Policy
+                </button>
+            </form>
+        </div>
+
+        <!-- INFO GRID -->
+        <div class="info-grid">
+            <div class="info-item animate-in animate-in-3">
+                <div class="info-icon">🔒</div>
+                <h3>100% Offline</h3>
+                <p>All processing runs locally. No data ever leaves your network.</p>
+            </div>
+            <div class="info-item animate-in animate-in-4">
+                <div class="info-icon">🛡️</div>
+                <h3>NIST CSF</h3>
+                <p>Analyzes against CIS MS-ISAC 2024 cybersecurity framework standards.</p>
+            </div>
+            <div class="info-item animate-in animate-in-5">
+                <div class="info-icon">📊</div>
+                <h3>10+ Reports</h3>
+                <p>Gap analysis, revised policy, roadmap, executive summary — TXT & PDF.</p>
+            </div>
+            <div class="info-item animate-in animate-in-5">
+                <div class="info-icon">⚡</div>
+                <h3>Rate Limited</h3>
+                <p>Max {{ queue_info.max_per_ip }} jobs per device. Queue capacity: {{ queue_info.max_queue_size }}.</p>
+            </div>
+        </div>
+
+        <div class="footer-divider animate-in animate-in-5"></div>
+        <footer class="animate-in animate-in-5">
+            Made with &#x1F497; by <strong>T-reXploit</strong>
+            &nbsp;&bull;&nbsp; NIST CSF (CIS MS-ISAC 2024)
+        </footer>
+    </div>
+
+    <script>
+        /* ============================
+         *  PARTICLE CANVAS
+         * ============================ */
+        (() => {
+            const canvas = document.getElementById('particleCanvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let mouse = { x: -1000, y: -1000 };
+            const PARTICLE_COUNT = 60;
+            const CONNECTION_DIST = 140;
+            const MOUSE_DIST = 180;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            document.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.vx = (Math.random() - .5) * .4;
+                    this.vy = (Math.random() - .5) * .4;
+                    this.r = Math.random() * 1.8 + .6;
+                    this.alpha = Math.random() * .5 + .2;
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+
+                    // Subtle mouse repulsion
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < MOUSE_DIST) {
+                        const force = (MOUSE_DIST - dist) / MOUSE_DIST * .015;
+                        this.vx += dx * force;
+                        this.vy += dy * force;
+                    }
+                    // Dampen
+                    this.vx *= .998;
+                    this.vy *= .998;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(99,102,241,${this.alpha})`;
+                    ctx.fill();
+                }
+            }
+
+            for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (const p of particles) { p.update(); p.draw(); }
+
+                // Connections
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < CONNECTION_DIST) {
+                            const alpha = (1 - dist / CONNECTION_DIST) * .12;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(99,102,241,${alpha})`;
+                            ctx.lineWidth = .6;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+        /* ============================
+         *  CARD SPOTLIGHT FOLLOW
+         * ============================ */
+        const uploadCard = document.getElementById('uploadCard');
+        const spotlight = document.getElementById('cardSpotlight');
+        uploadCard.addEventListener('mousemove', e => {
+            const rect = uploadCard.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            spotlight.style.background = `radial-gradient(400px circle at ${x}px ${y}px, rgba(99,102,241,.06), transparent 60%)`;
+        });
+
+        /* ============================
+         *  INFO ITEM TILT
+         * ============================ */
+        document.querySelectorAll('.info-item').forEach(item => {
+            item.addEventListener('mousemove', e => {
+                const rect = item.getBoundingClientRect();
+                const x = (e.clientX - rect.left) / rect.width - .5;
+                const y = (e.clientY - rect.top) / rect.height - .5;
+                item.style.transform = `translateY(-4px) perspective(600px) rotateX(${-y * 8}deg) rotateY(${x * 8}deg)`;
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.transform = '';
+            });
+        });
+
+        /* ============================
+         *  DROP ZONE & FILE UPLOAD
+         * ============================ */
+        const dropZone  = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileName  = document.getElementById('fileName');
+        const submitBtn = document.getElementById('submitBtn');
+        const dropIcon  = document.getElementById('dropIcon');
+        const dropText  = document.getElementById('dropText');
+        const checkBurst = document.getElementById('checkBurst');
+
+        ['dragenter', 'dragover'].forEach(evt =>
+            dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('dragover'); })
+        );
+        ['dragleave', 'drop'].forEach(evt =>
+            dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('dragover'); })
+        );
+
+        dropZone.addEventListener('drop', e => {
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                showFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) showFile(fileInput.files[0]);
+        });
+
+        function showFile(file) {
+            dropIcon.style.display = 'none';
+            dropText.style.display = 'none';
+            checkBurst.classList.add('visible');
+            dropZone.classList.add('file-ready');
+
+            fileName.innerHTML = '📎 <strong>' + file.name + '</strong>&nbsp;&nbsp;(' + (file.size / 1024).toFixed(1) + ' KB)';
+            fileName.classList.add('visible');
+            submitBtn.disabled = false;
+        }
+
+        /* ============================
+         *  BUTTON RIPPLE EFFECT
+         * ============================ */
+        submitBtn.addEventListener('click', function(e) {
+            if (this.disabled) return;
+            const rect = this.getBoundingClientRect();
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple-circle');
+            const size = Math.max(rect.width, rect.height);
+            ripple.style.width = ripple.style.height = size + 'px';
+            ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+            ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+            this.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+
+        // Prevent double-submit
+        document.getElementById('uploadForm').addEventListener('submit', () => {
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Uploading…';
+        });
+    </script>
+</body>
+</html>

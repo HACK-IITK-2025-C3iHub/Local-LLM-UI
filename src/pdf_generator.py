@@ -12,12 +12,12 @@ import html
 
 
 def escape_html(text):
-    """Escape special characters for ReportLab."""
-    # Escape HTML entities
-    text = html.escape(text)
-    # Replace common special characters
-    text = text.replace('&lt;', '<').replace('&gt;', '>')
-    return text
+    """Escape special characters for ReportLab XML parser.
+    
+    ReportLab uses an XML parser, so &, <, > must be escaped.
+    We use html.escape() which handles all three.
+    """
+    return html.escape(text)
 
 
 def create_pdf_report(content, output_path, title="Policy Analysis Report"):
@@ -74,9 +74,17 @@ def create_pdf_report(content, output_path, title="Policy Analysis Report"):
         
         # Bold sections (**text**)
         if '**' in line:
-            # Properly handle bold markdown
-            clean_line = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', line)
-            story.append(Paragraph(escape_html(clean_line).replace('&lt;b&gt;', '<b>').replace('&lt;/b&gt;', '</b>'), styles['CustomHeading2']))
+            # Convert **text** to <b>text</b> BEFORE escaping, then
+            # selectively restore bold tags after escaping.
+            parts = re.split(r'(\*\*[^*]+\*\*)', line)
+            rendered = ''
+            for part in parts:
+                m = re.match(r'^\*\*(.+)\*\*$', part)
+                if m:
+                    rendered += '<b>' + html.escape(m.group(1)) + '</b>'
+                else:
+                    rendered += html.escape(part)
+            story.append(Paragraph(rendered, styles['CustomHeading2']))
             continue
         
         # Bullet points

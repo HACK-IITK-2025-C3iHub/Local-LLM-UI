@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job {{ job.id[:8] }} — Policy Gap Analyzer</title>
+    <meta name="description" content="Analysis status for job {{ job.id[:8] }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- NOTE: No <meta http-equiv="refresh"> — AJAX polling handles updates without full reload -->
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary:    #06080f;
+            --bg-secondary:  #0c1120;
+            --bg-card:       rgba(15, 23, 42, 0.6);
+            --bg-card-solid: #111b30;
+            --accent:        #6366f1;
+            --accent-light:  #818cf8;
+            --accent-glow:   rgba(99,102,241,.25);
+            --accent-deep:   #4f46e5;
+            --violet:        #7c3aed;
+            --violet-glow:   rgba(124,58,237,.2);
+            --green:         #22c55e;
+            --green-glow:    rgba(34,197,94,.15);
+            --amber:         #f59e0b;
+            --amber-glow:    rgba(245,158,11,.15);
+            --red:           #ef4444;
+            --red-glow:      rgba(239,68,68,.15);
+            --blue:          #3b82f6;
+            --blue-glow:     rgba(59,130,246,.15);
+            --cyan:          #06b6d4;
+            --cyan-glow:     rgba(6,182,212,.15);
+            --text-primary:  #f1f5f9;
+            --text-secondary:#94a3b8;
+            --text-muted:    #64748b;
+            --border:        rgba(30, 41, 59, 0.8);
+            --border-light:  rgba(51, 65, 85, 0.5);
+            --radius:        14px;
+            --radius-lg:     22px;
+            --radius-xl:     28px;
+            --shadow:        0 4px 24px rgba(0,0,0,.5);
+            --shadow-glow:   0 0 30px rgba(99,102,241,.12);
+            --transition:    .3s cubic-bezier(.4,0,.2,1);
+            --blur:          16px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary); color: var(--text-primary);
+            min-height: 100vh; line-height: 1.65;
+            overflow-x: hidden;
+        }
+
+        /* ===== PARTICLE CANVAS ===== */
+        #particleCanvas {
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== AMBIENT GLOW ===== */
+        .bg-mesh {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background:
+                radial-gradient(ellipse 800px 500px at 15% 15%, rgba(99,102,241,.07), transparent),
+                radial-gradient(ellipse 600px 600px at 85% 80%, rgba(6,182,212,.05), transparent),
+                radial-gradient(ellipse 500px 400px at 50% 50%, rgba(124,58,237,.04), transparent);
+            animation: meshFloat 25s ease-in-out infinite alternate;
+        }
+        @keyframes meshFloat {
+            0%   { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(-35px, 25px) scale(1.06); }
+        }
+
+        .container {
+            position: relative; z-index: 1;
+            max-width: 820px; margin: 0 auto;
+            padding: 2.5rem 1.5rem 4rem;
+        }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(.9); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+        @keyframes stageSlideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes breathe {
+            0%, 100% { box-shadow: 0 0 8px var(--glow-color); }
+            50%      { box-shadow: 0 0 24px var(--glow-color), 0 0 40px var(--glow-color); }
+        }
+        @keyframes gradientShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes progressGlow {
+            0%   { box-shadow: 0 0 6px var(--accent-glow); }
+            50%  { box-shadow: 0 0 18px var(--accent-glow), 0 0 30px rgba(34,197,94,.15); }
+            100% { box-shadow: 0 0 6px var(--accent-glow); }
+        }
+        @keyframes stripeMove {
+            0%   { background-position: 0 0; }
+            100% { background-position: 40px 0; }
+        }
+        @keyframes scaleBreath {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.06); }
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-3px); }
+            20%, 40%, 60%, 80% { transform: translateX(3px); }
+        }
+        @keyframes confetti {
+            0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(-60px) rotate(360deg); opacity: 0; }
+        }
+        @keyframes orbitRing {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+        @keyframes arrowSlide {
+            0%, 100% { transform: translateX(0); }
+            50%      { transform: translateX(-4px); }
+        }
+        @keyframes downloadBounce {
+            0%, 100% { transform: translateY(0); }
+            50%      { transform: translateY(3px); }
+        }
+        @keyframes ringPulse {
+            0%   { transform: scale(1); opacity: .5; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(.94) translateY(16px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .animate-in { animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) both; }
+        .animate-in-1 { animation-delay: .05s; }
+        .animate-in-2 { animation-delay: .15s; }
+        .animate-in-3 { animation-delay: .25s; }
+        .animate-in-4 { animation-delay: .35s; }
+        .animate-in-5 { animation-delay: .45s; }
+
+        /* ===== BACK LINK ===== */
+        .back-link {
+            display: inline-flex; align-items: center; gap: .4rem;
+            color: var(--text-secondary); text-decoration: none;
+            font-size: .85rem; margin-bottom: 1.8rem;
+            transition: color var(--transition);
+            font-weight: 500;
+        }
+        .back-link .arrow {
+            display: inline-block;
+            transition: transform var(--transition);
+        }
+        .back-link:hover { color: var(--accent-light); }
+        .back-link:hover .arrow { animation: arrowSlide .6s ease infinite; }
+
+        /* ===== STATUS HEADER ===== */
+        .status-header {
+            text-align: center; margin-bottom: 2.5rem;
+        }
+        .status-badge {
+            display: inline-flex; align-items: center; gap: .55rem;
+            padding: .45rem 1.2rem; border-radius: 999px;
+            font-size: .76rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .08em; margin-bottom: 1.2rem;
+            position: relative;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .status-badge::before {
+            content: '';
+            position: absolute; inset: -2px; border-radius: 999px;
+            z-index: -1; opacity: .4;
+        }
+        .status-badge.queued {
+            background: var(--blue-glow); border: 1px solid rgba(59,130,246,.3); color: var(--blue);
+        }
+        .status-badge.queued::before {
+            background: rgba(59,130,246,.2);
+            animation: ringPulse 3s ease-in-out infinite;
+        }
+        .status-badge.running {
+            background: var(--amber-glow); border: 1px solid rgba(245,158,11,.3); color: var(--amber);
+            --glow-color: rgba(245,158,11,.2);
+            animation: breathe 2.5s ease-in-out infinite;
+        }
+        .status-badge.running::before {
+            background: rgba(245,158,11,.2);
+            animation: ringPulse 2.5s ease-in-out infinite;
+        }
+        .status-badge.done {
+            background: var(--green-glow); border: 1px solid rgba(34,197,94,.3); color: var(--green);
+        }
+        .status-badge.done::before {
+            background: rgba(34,197,94,.2);
+            animation: ringPulse 3s ease-in-out infinite;
+        }
+        .status-badge.error {
+            background: var(--red-glow); border: 1px solid rgba(239,68,68,.3); color: var(--red);
+        }
+
+        .status-badge .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+        }
+        .status-badge.queued  .dot { background: var(--blue);  box-shadow: 0 0 8px var(--blue); }
+        .status-badge.running .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse 1.5s infinite; }
+        .status-badge.done    .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .status-badge.error   .dot { background: var(--red);   box-shadow: 0 0 8px var(--red); }
+
+        .status-header h1 {
+            font-size: 1.8rem; font-weight: 900;
+            background: linear-gradient(135deg, #fff, var(--accent-light), var(--cyan), #fff);
+            background-size: 300% 100%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 6s ease infinite;
+            margin-bottom: .4rem;
+            letter-spacing: -.01em;
+        }
+        .status-header .filename {
+            color: var(--text-secondary); font-size: .88rem;
+        }
+
+        /* ===== CARD (Glassmorphism) ===== */
+        .card {
+            position: relative;
+            background: var(--bg-card);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl); padding: 2rem;
+            box-shadow: var(--shadow), var(--shadow-glow);
+            margin-bottom: 1.5rem;
+            transition: border-color var(--transition);
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: var(--radius-xl); padding: 1px;
+            background: linear-gradient(135deg, rgba(99,102,241,.2), transparent, rgba(6,182,212,.15));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .card:hover::before { opacity: 1; }
+        .card:hover { border-color: rgba(99,102,241,.2); }
+        .card h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 1.1rem; letter-spacing: -.01em; }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-wrap { margin-bottom: 1.5rem; }
+        .progress-label {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: .82rem; color: var(--text-secondary); margin-bottom: .55rem;
+            font-weight: 500;
+        }
+        .progress-label span:last-child {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600; color: var(--accent-light);
+        }
+        .progress-track {
+            height: 10px; background: var(--bg-secondary);
+            border-radius: 999px; overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .progress-fill {
+            height: 100%; border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent), var(--green));
+            background-size: 200% 100%;
+            animation: gradientShift 3s ease infinite, progressGlow 2s ease-in-out infinite;
+            transition: width .8s cubic-bezier(.4,0,.2,1);
+            position: relative;
+        }
+        .progress-fill::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 8px,
+                rgba(255,255,255,.06) 8px,
+                rgba(255,255,255,.06) 16px
+            );
+            background-size: 40px 40px;
+            animation: stripeMove 1s linear infinite;
+        }
+
+        /* ===== ORBITING RING (running state) ===== */
+        .orbit-container {
+            position: relative; display: inline-flex;
+            align-items: center; justify-content: center;
+            margin-bottom: .5rem;
+        }
+        .orbit-ring {
+            position: absolute;
+            width: 70px; height: 70px;
+            border: 2px solid transparent;
+            border-top-color: var(--amber);
+            border-right-color: rgba(245,158,11,.3);
+            border-radius: 50%;
+            animation: orbitRing 2s linear infinite;
+        }
+        .orbit-pct {
+            font-size: 1.4rem; font-weight: 900;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--amber);
+            text-shadow: 0 0 16px rgba(245,158,11,.4);
+        }
+
+        /* ===== STAGE LIST ===== */
+        .stages { list-style: none; }
+        .stages li {
+            display: flex; align-items: center; gap: .65rem;
+            padding: .6rem 0; border-bottom: 1px solid var(--border);
+            font-size: .85rem; color: var(--text-muted);
+            animation: stageSlideIn .5s cubic-bezier(.16,1,.3,1) both;
+        }
+        .stages li:nth-child(1) { animation-delay: .1s; }
+        .stages li:nth-child(2) { animation-delay: .18s; }
+        .stages li:nth-child(3) { animation-delay: .26s; }
+        .stages li:nth-child(4) { animation-delay: .34s; }
+        .stages li:nth-child(5) { animation-delay: .42s; }
+        .stages li:nth-child(6) { animation-delay: .50s; }
+        .stages li:last-child { border-bottom: none; }
+        .stages li .stage-icon { font-size: 1rem; width: 1.5rem; text-align: center; }
+        .stages li.completed { color: var(--green); }
+        .stages li.active    { color: var(--amber); font-weight: 700; }
+        .stages li.pending   { color: var(--text-muted); }
+
+        /* ===== QUEUE POSITION ===== */
+        .queue-position {
+            text-align: center; padding: 2rem 1.5rem;
+            font-size: 1.1rem; color: var(--text-secondary);
+        }
+        .queue-position .pos {
+            font-size: 3.5rem; font-weight: 900;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--blue); line-height: 1;
+            margin-bottom: .3rem;
+            text-shadow: 0 0 24px rgba(59,130,246,.35);
+            animation: scaleBreath 3s ease-in-out infinite;
+        }
+
+        /* ===== ERROR BOX ===== */
+        .error-box {
+            background: var(--red-glow); border: 1px solid rgba(239,68,68,.25);
+            border-radius: var(--radius); padding: 1.1rem 1.35rem;
+            font-size: .85rem; color: #fca5a5;
+            word-break: break-word;
+            animation: shake .5s ease .3s both;
+        }
+
+        /* ===== FILE GRID ===== */
+        .file-grid {
+            display: grid; grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        @media (max-width: 600px) {
+            .file-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ===== FILE CARD (enhanced) ===== */
+        .file-card {
+            display: flex; flex-direction: column;
+            background: var(--bg-card);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 1rem 1.2rem 1rem;
+            transition: all var(--transition);
+            position: relative; overflow: hidden;
+        }
+        .file-card::before {
+            content: '';
+            position: absolute; inset: 0;
+            border-radius: var(--radius); padding: 1px;
+            background: linear-gradient(135deg, rgba(99,102,241,.3), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .file-card:hover::before { opacity: 1; }
+        .file-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px var(--accent-glow);
+        }
+        .file-card-top {
+            display: flex; align-items: center; gap: .8rem;
+            margin-bottom: .85rem;
+        }
+        .file-card .file-icon {
+            font-size: 1.7rem; flex-shrink: 0;
+            transition: transform var(--transition);
+        }
+        .file-card:hover .file-icon { animation: downloadBounce .5s ease infinite; }
+        .file-card .file-info { min-width: 0; flex: 1; }
+        .file-card .file-name {
+            font-size: .8rem; font-weight: 700;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            color: var(--text-primary);
+        }
+        .file-card .file-size {
+            font-size: .7rem; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: .1rem;
+        }
+        .file-card-actions {
+            display: flex; gap: .5rem;
+        }
+        .btn-sm {
+            display: inline-flex; align-items: center; justify-content: center; gap: .3rem;
+            padding: .45rem .8rem; border: none; border-radius: 8px;
+            font-family: inherit; font-size: .73rem; font-weight: 700;
+            cursor: pointer; text-decoration: none;
+            transition: all var(--transition);
+            flex: 1;
+        }
+        .btn-sm-view {
+            background: rgba(99,102,241,.12);
+            border: 1px solid rgba(99,102,241,.25);
+            color: var(--accent-light);
+        }
+        .btn-sm-view:hover {
+            background: rgba(99,102,241,.25);
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+        .btn-sm-download {
+            background: rgba(34,197,94,.1);
+            border: 1px solid rgba(34,197,94,.2);
+            color: var(--green);
+        }
+        .btn-sm-download:hover {
+            background: rgba(34,197,94,.22);
+            border-color: var(--green);
+            transform: translateY(-1px);
+        }
+
+        /* ===== BUTTON ===== */
+        .btn {
+            display: inline-flex; align-items: center; gap: .4rem;
+            padding: .7rem 1.35rem; border: none; border-radius: var(--radius);
+            font-family: inherit; font-size: .85rem; font-weight: 700;
+            cursor: pointer; text-decoration: none;
+            transition: all var(--transition);
+            position: relative; overflow: hidden;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--violet));
+            color: #fff; box-shadow: 0 2px 16px var(--accent-glow);
+        }
+        .btn-primary::before {
+            content: '';
+            position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+            transition: left .5s ease;
+        }
+        .btn-primary:hover::before { left: 100%; }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px var(--accent-glow);
+        }
+
+        .btn-outline {
+            background: transparent; border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent-light); }
+
+        .actions { display: flex; gap: .75rem; justify-content: center; margin-top: 1.75rem; flex-wrap: wrap; }
+
+        /* ===== META TABLE ===== */
+        .meta-table {
+            width: 100%; font-size: .82rem;
+        }
+        .meta-table td {
+            padding: .5rem 0;
+            border-bottom: 1px solid rgba(30,41,59,.4);
+        }
+        .meta-table tr:last-child td { border-bottom: none; }
+        .meta-table td:first-child {
+            color: var(--text-muted); width: 140px;
+            font-weight: 500;
+        }
+        .meta-table code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .78rem;
+            background: var(--bg-secondary);
+            padding: .15rem .45rem; border-radius: 6px;
+            border: 1px solid var(--border);
+            color: var(--accent-light);
+        }
+
+        /* ===== REFRESH NOTE ===== */
+        .refresh-note {
+            text-align: center; font-size: .75rem;
+            color: var(--text-muted); margin-top: 1.2rem;
+        }
+        .refresh-note .spinner {
+            display: inline-block; width: 12px; height: 12px;
+            border: 2px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin .8s linear infinite;
+            vertical-align: middle; margin-right: .3rem;
+        }
+
+        /* ===== CONFETTI (done state) ===== */
+        .confetti-container {
+            position: fixed; inset: 0; z-index: 100;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .confetti-piece {
+            position: absolute;
+            width: 8px; height: 8px;
+            border-radius: 2px; opacity: 0;
+        }
+
+        /* ===== PDF MODAL ===== */
+        .pdf-modal-overlay {
+            position: fixed; inset: 0; z-index: 1000;
+            background: rgba(6, 8, 15, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity .3s ease;
+        }
+        .pdf-modal-overlay.open {
+            opacity: 1; pointer-events: all;
+        }
+        .pdf-modal {
+            position: relative;
+            width: min(92vw, 1000px);
+            height: min(90vh, 860px);
+            background: var(--bg-card);
+            border: 1px solid rgba(99,102,241,.25);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 24px 80px rgba(0,0,0,.7), 0 0 60px rgba(99,102,241,.1);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            animation: modalIn .4s cubic-bezier(.16,1,.3,1) both;
+        }
+        .pdf-modal-header {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .9rem 1.25rem;
+            background: rgba(15,23,42,.7);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .pdf-modal-title {
+            font-size: .85rem; font-weight: 700;
+            color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            flex: 1;
+        }
+        .pdf-modal-close {
+            width: 30px; height: 30px; border-radius: 8px;
+            background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.2);
+            color: #fca5a5; font-size: 1rem; line-height: 1;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+            transition: all var(--transition); flex-shrink: 0;
+        }
+        .pdf-modal-close:hover {
+            background: rgba(239,68,68,.25); border-color: var(--red);
+        }
+        .pdf-modal-actions {
+            display: flex; gap: .5rem; align-items: center; flex-shrink: 0;
+        }
+        .pdf-modal-body {
+            flex: 1; overflow: hidden; background: #1a1a2e;
+            position: relative;
+        }
+        .pdf-modal-body iframe {
+            width: 100%; height: 100%; border: none;
+            display: block;
+        }
+        .pdf-modal-loading {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1rem; color: var(--text-muted); font-size: .88rem;
+        }
+        .pdf-modal-loading .spinner-lg {
+            width: 40px; height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%; animation: spin 1s linear infinite;
+        }
+        .pdf-modal-fallback {
+            position: absolute; inset: 0;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            gap: 1rem; padding: 2rem; text-align: center;
+        }
+        .pdf-modal-fallback .big-icon { font-size: 3.5rem; }
+        .pdf-modal-fallback p { color: var(--text-secondary); font-size: .9rem; max-width: 320px; }
+
+        /* ===== FOOTER ===== */
+        .footer-divider {
+            width: 40px; height: 2px; margin: 0 auto 1rem;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 999px;
+        }
+        footer {
+            text-align: center; margin-top: 3rem;
+            font-size: .73rem; color: var(--text-muted);
+        }
+        footer strong { color: var(--text-secondary); }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 600px) {
+            .container { padding: 1.5rem 1rem 3rem; }
+            .status-header h1 { font-size: 1.4rem; }
+            .card { padding: 1.5rem; border-radius: var(--radius-lg); }
+            .queue-position .pos { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="particleCanvas"></canvas>
+    <div class="bg-mesh"></div>
+
+    {% if job.status == 'done' %}
+    <div class="confetti-container" id="confettiContainer"></div>
+    {% endif %}
+
+    <!-- PDF MODAL -->
+    <div class="pdf-modal-overlay" id="pdfModal" role="dialog" aria-modal="true" aria-label="PDF Viewer">
+        <div class="pdf-modal">
+            <div class="pdf-modal-header">
+                <span class="pdf-modal-title" id="pdfModalTitle">Document</span>
+                <div class="pdf-modal-actions">
+                    <a id="pdfModalDownload" href="#" class="btn-sm btn-sm-download" style="flex:0;padding:.4rem .9rem;text-decoration:none;">⬇ Download</a>
+                    <button class="pdf-modal-close" id="pdfModalClose" title="Close">✕</button>
+                </div>
+            </div>
+            <div class="pdf-modal-body">
+                <div class="pdf-modal-loading" id="pdfModalLoading">
+                    <div class="spinner-lg"></div>
+                    <span>Loading document…</span>
+                </div>
+                <div class="pdf-modal-fallback" id="pdfModalFallback">
+                    <div class="big-icon">📄</div>
+                    <p>Your browser couldn't display this PDF inline. Please use the Download button above.</p>
+                </div>
+                <iframe id="pdfModalIframe" src="about:blank" title="PDF Viewer"
+                    style="position:relative;z-index:1;"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <a href="/" class="back-link animate-in animate-in-1">
+            <span class="arrow">←</span> Back to Upload
+        </a>
+
+        <!-- STATUS HEADER -->
+        <div class="status-header animate-in animate-in-2" id="statusHeader">
+            <div class="status-badge {{ job.status }}" id="statusBadge">
+                <span class="dot"></span>
+                {% if job.status == 'queued' %}Queued
+                {% elif job.status == 'running' %}Analyzing…
+                {% elif job.status == 'done' %}Complete
+                {% else %}Error{% endif %}
+            </div>
+            <h1 id="statusTitle">
+                {% if job.status == 'done' %}Analysis Complete 🎉
+                {% elif job.status == 'error' %}Analysis Failed
+                {% elif job.status == 'running' %}Analysis in Progress
+                {% else %}Waiting in Queue{% endif %}
+            </h1>
+            <p class="filename">📎 {{ job.policy_filename }}</p>
+        </div>
+
+        <!-- QUEUED STATE -->
+        {% if job.status == 'queued' %}
+        <div class="card animate-in animate-in-3" id="stateCard">
+            <div class="queue-position">
+                <div class="pos" id="queuePos">#{{ job.queue_position }}</div>
+                Position in queue
+            </div>
+            <p class="refresh-note"><span class="spinner"></span> Checking for updates every 5 seconds…</p>
+        </div>
+        {% endif %}
+
+        <!-- RUNNING STATE -->
+        {% if job.status == 'running' %}
+        <div class="card animate-in animate-in-3" id="stateCard">
+            <div style="text-align: center; margin-bottom: 1.2rem;">
+                <div class="orbit-container">
+                    <div class="orbit-ring"></div>
+                    <span class="orbit-pct" id="orbitPct">{{ ((job.progress_stage / job.progress_total) * 100) | int }}%</span>
+                </div>
+            </div>
+
+            <div class="progress-wrap">
+                <div class="progress-label">
+                    <span id="stageLabel">Stage {{ job.progress_stage }} of {{ job.progress_total }}</span>
+                    <span id="stagePct">{{ ((job.progress_stage / job.progress_total) * 100) | int }}%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill" style="width: {{ ((job.progress_stage / job.progress_total) * 100) | int }}%"></div>
+                </div>
+            </div>
+
+            <ul class="stages" id="stageList">
+                {% set stage_names = ['Loading policy document', 'Loading NIST framework', 'Analyzing policy gaps', 'Generating revised policy', 'Creating improvement roadmap', 'Generating executive summary'] %}
+                {% for name in stage_names %}
+                <li class="{% if loop.index < job.progress_stage %}completed{% elif loop.index == job.progress_stage %}active{% else %}pending{% endif %}">
+                    <span class="stage-icon">
+                        {% if loop.index < job.progress_stage %}✅
+                        {% elif loop.index == job.progress_stage %}⏳
+                        {% else %}○{% endif %}
+                    </span>
+                    {{ name }}
+                </li>
+                {% endfor %}
+            </ul>
+            <p class="refresh-note"><span class="spinner"></span> Checking for updates every 5 seconds…</p>
+        </div>
+        {% endif %}
+
+        <!-- ERROR STATE -->
+        {% if job.status == 'error' %}
+        <div class="card animate-in animate-in-3">
+            <h2>Error Details</h2>
+            <div class="error-box">{{ job.error_msg }}</div>
+            <div class="actions">
+                <a href="/" class="btn btn-primary">🔄 Try Again</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- DONE STATE -->
+        {% if job.status == 'done' and output_files %}
+        <div class="card animate-in animate-in-3" id="downloadsCard">
+            <h2>📥 Analysis Reports</h2>
+            <div class="file-grid" id="fileGrid">
+                {% for file in output_files %}
+                <div class="file-card" style="animation: fadeInUp .5s cubic-bezier(.16,1,.3,1) {{ loop.index * 0.06 }}s both;"
+                     data-filename="{{ file.name }}" data-is-pdf="{{ 'true' if file.is_pdf else 'false' }}">
+                    <div class="file-card-top">
+                        <span class="file-icon">{% if file.is_pdf %}📕{% else %}📝{% endif %}</span>
+                        <div class="file-info">
+                            <div class="file-name" title="{{ file.name }}">{{ file.name }}</div>
+                            <div class="file-size">{{ file.size }}</div>
+                        </div>
+                    </div>
+                    <div class="file-card-actions">
+                        {% if file.is_pdf %}
+                        <button class="btn-sm btn-sm-view view-pdf-btn"
+                                data-filename="{{ file.name }}">👁 View</button>
+                        {% endif %}
+                        <a href="/download/{{ file.path }}" class="btn-sm btn-sm-download"
+                           download="{{ file.name }}">⬇ Download</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="actions">
+                <a href="/" class="btn btn-primary">🚀 Analyze Another</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- META INFO -->
+        <div class="card animate-in animate-in-4" id="metaCard">
+            <h2>Job Details</h2>
+            <table class="meta-table">
+                <tr><td>Job ID</td><td><code>{{ job.id }}</code></td></tr>
+                <tr><td>Submitted</td><td>{{ job.submitted_at[:19] if job.submitted_at else '—' }}</td></tr>
+                {% if job.started_at %}
+                <tr><td>Started</td><td>{{ job.started_at[:19] }}</td></tr>
+                {% endif %}
+                {% if job.completed_at %}
+                <tr><td>Completed</td><td>{{ job.completed_at[:19] }}</td></tr>
+                {% endif %}
+                <tr><td>Device</td><td>{{ job.ip }}</td></tr>
+            </table>
+        </div>
+
+        <div class="footer-divider animate-in animate-in-5"></div>
+        <footer class="animate-in animate-in-5">
+            Made with &#x1F497; by <a href="https://github.com/HACK-IITK-2025-C3iHub" target="_blank" rel="noopener noreferrer" style="color:var(--accent-light);text-decoration:none;font-weight:700;transition:color var(--transition);" onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--accent-light)'">T-reXploit</a>
+        </footer>
+    </div>
+
+    <script>
+        /* ============================
+         *  PARTICLE CANVAS
+         * ============================ */
+        (() => {
+            const canvas = document.getElementById('particleCanvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let mouse = { x: -1000, y: -1000 };
+            const PARTICLE_COUNT = 50;
+            const CONNECTION_DIST = 130;
+            const MOUSE_DIST = 160;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+            document.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.vx = (Math.random() - .5) * .35;
+                    this.vy = (Math.random() - .5) * .35;
+                    this.r = Math.random() * 1.6 + .5;
+                    this.alpha = Math.random() * .45 + .15;
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                    const dx = this.x - mouse.x;
+                    const dy = this.y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < MOUSE_DIST) {
+                        const force = (MOUSE_DIST - dist) / MOUSE_DIST * .012;
+                        this.vx += dx * force;
+                        this.vy += dy * force;
+                    }
+                    this.vx *= .998;
+                    this.vy *= .998;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(99,102,241,${this.alpha})`;
+                    ctx.fill();
+                }
+            }
+            for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (const p of particles) { p.update(); p.draw(); }
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < CONNECTION_DIST) {
+                            const alpha = (1 - dist / CONNECTION_DIST) * .1;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(99,102,241,${alpha})`;
+                            ctx.lineWidth = .5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+        /* ============================
+         *  CONFETTI (done state only)
+         * ============================ */
+        {% if job.status == 'done' %}
+        (() => {
+            const container = document.getElementById('confettiContainer');
+            const colors = ['#6366f1', '#22c55e', '#f59e0b', '#06b6d4', '#f43f5e', '#8b5cf6', '#10b981'];
+            for (let i = 0; i < 50; i++) {
+                const piece = document.createElement('div');
+                piece.classList.add('confetti-piece');
+                piece.style.left = Math.random() * 100 + '%';
+                piece.style.top = (Math.random() * 40 + 30) + '%';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.width = (Math.random() * 6 + 4) + 'px';
+                piece.style.height = (Math.random() * 6 + 4) + 'px';
+                piece.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+                piece.style.animation = `confetti ${Math.random() * 1.5 + 1}s ease ${Math.random() * .8}s both`;
+                container.appendChild(piece);
+            }
+            setTimeout(() => container.remove(), 4000);
+        })();
+        {% endif %}
+
+        /* ============================
+         *  FILE CARD 3D TILT
+         * ============================ */
+        function initTilt() {
+            document.querySelectorAll('.file-card').forEach(card => {
+                card.addEventListener('mousemove', e => {
+                    const rect = card.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width - .5;
+                    const y = (e.clientY - rect.top) / rect.height - .5;
+                    card.style.transform = `translateY(-2px) perspective(600px) rotateX(${-y * 6}deg) rotateY(${x * 6}deg)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = '';
+                });
+            });
+        }
+        initTilt();
+
+        /* ============================
+         *  AJAX POLLING (no full page reload)
+         * ============================ */
+        const JOB_ID   = "{{ job.id }}";
+        const INIT_STATUS = "{{ job.status }}";
+        const STAGE_NAMES = [
+            'Loading policy document', 'Loading NIST framework',
+            'Analyzing policy gaps',   'Generating revised policy',
+            'Creating improvement roadmap', 'Generating executive summary'
+        ];
+
+        function buildFileGrid(files) {
+            return files.map((f, i) => {
+                const isPdf = f.is_pdf;
+                const viewBtn = isPdf
+                    ? `<button class="btn-sm btn-sm-view view-pdf-btn" data-filename="${f.name}">👁 View</button>`
+                    : '';
+                return `
+                <div class="file-card" style="animation: fadeInUp .5s cubic-bezier(.16,1,.3,1) ${i * 0.06}s both;"
+                     data-filename="${f.name}" data-is-pdf="${isPdf ? 'true' : 'false'}">
+                    <div class="file-card-top">
+                        <span class="file-icon">${isPdf ? '📕' : '📝'}</span>
+                        <div class="file-info">
+                            <div class="file-name" title="${f.name}">${f.name}</div>
+                            <div class="file-size">${f.size}</div>
+                        </div>
+                    </div>
+                    <div class="file-card-actions">
+                        ${viewBtn}
+                        <a href="/download/${f.path}" class="btn-sm btn-sm-download" download="${f.name}">⬇ Download</a>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function insertDownloadsCard(files) {
+            // Insert downloads card before meta card if not already there
+            if (document.getElementById('downloadsCard')) return;
+            const metaCard = document.getElementById('metaCard');
+            const card = document.createElement('div');
+            card.className = 'card animate-in';
+            card.id = 'downloadsCard';
+            card.innerHTML = `
+                <h2>📥 Analysis Reports</h2>
+                <div class="file-grid" id="fileGrid">${buildFileGrid(files)}</div>
+                <div class="actions">
+                    <a href="/" class="btn btn-primary">🚀 Analyze Another</a>
+                </div>`;
+            metaCard.parentNode.insertBefore(card, metaCard);
+            initTilt();
+            initPdfButtons();
+            // Confetti on transition to done
+            launchConfetti();
+        }
+
+        function launchConfetti() {
+            const existing = document.getElementById('confettiContainer');
+            if (existing) return;
+            const container = document.createElement('div');
+            container.className = 'confetti-container';
+            container.id = 'confettiContainer';
+            document.body.prepend(container);
+            const colors = ['#6366f1', '#22c55e', '#f59e0b', '#06b6d4', '#f43f5e', '#8b5cf6', '#10b981'];
+            for (let i = 0; i < 50; i++) {
+                const piece = document.createElement('div');
+                piece.classList.add('confetti-piece');
+                piece.style.left = Math.random() * 100 + '%';
+                piece.style.top = (Math.random() * 40 + 30) + '%';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.width = (Math.random() * 6 + 4) + 'px';
+                piece.style.height = (Math.random() * 6 + 4) + 'px';
+                piece.style.borderRadius = Math.random() > .5 ? '50%' : '2px';
+                piece.style.animation = `confetti ${Math.random() * 1.5 + 1}s ease ${Math.random() * .8}s both`;
+                container.appendChild(piece);
+            }
+            setTimeout(() => container.remove(), 4000);
+        }
+
+        // Track what state the stateCard was built for (set by server-side render)
+        let renderedState = INIT_STATUS;
+
+        function buildRunningCardHTML(data) {
+            const pct = Math.round((data.progress_stage / data.progress_total) * 100);
+            const stagesHTML = STAGE_NAMES.map((name, idx) => {
+                const n = idx + 1;
+                const cls  = n < data.progress_stage ? 'completed' : n === data.progress_stage ? 'active' : 'pending';
+                const icon = n < data.progress_stage ? '✅' : n === data.progress_stage ? '⏳' : '○';
+                return `<li class="${cls}"><span class="stage-icon">${icon}</span>${name}</li>`;
+            }).join('');
+            return `
+                <div style="text-align:center;margin-bottom:1.2rem;">
+                    <div class="orbit-container">
+                        <div class="orbit-ring"></div>
+                        <span class="orbit-pct" id="orbitPct">${pct}%</span>
+                    </div>
+                </div>
+                <div class="progress-wrap">
+                    <div class="progress-label">
+                        <span id="stageLabel">Stage ${data.progress_stage} of ${data.progress_total}</span>
+                        <span id="stagePct">${pct}%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill" style="width:${pct}%"></div>
+                    </div>
+                </div>
+                <ul class="stages" id="stageList">${stagesHTML}</ul>
+                <p class="refresh-note"><span class="spinner"></span> Checking for updates every 5 seconds…</p>`;
+        }
+
+        function applyStatus(data) {
+            const badge     = document.getElementById('statusBadge');
+            const title     = document.getElementById('statusTitle');
+            let   stateCard = document.getElementById('stateCard');
+
+            // Update badge class & text
+            if (badge) {
+                badge.className = `status-badge ${data.status}`;
+                badge.innerHTML = `<span class="dot"></span>`;
+                const labels = { queued:'Queued', running:'Analyzing…', done:'Complete', error:'Error' };
+                badge.appendChild(document.createTextNode(labels[data.status] || data.status));
+            }
+
+            // Update title
+            if (title) {
+                const titles = {
+                    queued:  'Waiting in Queue',
+                    running: 'Analysis in Progress',
+                    done:    'Analysis Complete 🎉',
+                    error:   'Analysis Failed',
+                };
+                title.textContent = titles[data.status] || data.status;
+            }
+
+            // ── RUNNING ──────────────────────────────────────────────────────
+            if (data.status === 'running') {
+                if (renderedState !== 'running' && stateCard) {
+                    // Transition from queued → running: rebuild card HTML entirely
+                    stateCard.innerHTML = buildRunningCardHTML(data);
+                    renderedState = 'running';
+                } else if (stateCard) {
+                    // Already a running card — just update the dynamic values
+                    const pct = Math.round((data.progress_stage / data.progress_total) * 100);
+                    const orbitPct = document.getElementById('orbitPct');
+                    if (orbitPct) orbitPct.textContent = pct + '%';
+                    const lbl = document.getElementById('stageLabel');
+                    if (lbl) lbl.textContent = `Stage ${data.progress_stage} of ${data.progress_total}`;
+                    const pctEl = document.getElementById('stagePct');
+                    if (pctEl) pctEl.textContent = pct + '%';
+                    const fill = document.getElementById('progressFill');
+                    if (fill) fill.style.width = pct + '%';
+                    const stageList = document.getElementById('stageList');
+                    if (stageList) {
+                        stageList.innerHTML = STAGE_NAMES.map((name, idx) => {
+                            const n = idx + 1;
+                            const cls  = n < data.progress_stage ? 'completed' : n === data.progress_stage ? 'active' : 'pending';
+                            const icon = n < data.progress_stage ? '✅' : n === data.progress_stage ? '⏳' : '○';
+                            return `<li class="${cls}"><span class="stage-icon">${icon}</span>${name}</li>`;
+                        }).join('');
+                    }
+                }
+            }
+
+            // ── QUEUED ───────────────────────────────────────────────────────
+            if (data.status === 'queued' && stateCard) {
+                const posEl = document.getElementById('queuePos');
+                if (posEl) posEl.textContent = `#${data.queue_position}`;
+            }
+
+            // ── DONE ─────────────────────────────────────────────────────────
+            if (data.status === 'done') {
+                if (stateCard) stateCard.remove();
+                if (data.output_files && data.output_files.length) {
+                    insertDownloadsCard(data.output_files);
+                }
+            }
+
+            // ── ERROR ────────────────────────────────────────────────────────
+            if (data.status === 'error') {
+                if (stateCard) {
+                    stateCard.innerHTML = `
+                        <h2>Error Details</h2>
+                        <div class="error-box">${data.error_msg || 'Unknown error'}</div>
+                        <div class="actions"><a href="/" class="btn btn-primary">🔄 Try Again</a></div>`;
+                }
+            }
+        }
+
+        // Only poll if job is still active
+        if (INIT_STATUS === 'queued' || INIT_STATUS === 'running') {
+            let pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${JOB_ID}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    applyStatus(data);
+                    if (data.status !== 'queued' && data.status !== 'running') {
+                        clearInterval(pollInterval);
+                    }
+                } catch (e) {
+                    // Network issue; will retry next tick
+                }
+            }, 5000);
+        }
+
+        /* ============================
+         *  PDF MODAL
+         * ============================ */
+        const pdfModal      = document.getElementById('pdfModal');
+        const pdfModalClose = document.getElementById('pdfModalClose');
+        const pdfModalTitle = document.getElementById('pdfModalTitle');
+        const pdfModalIframe  = document.getElementById('pdfModalIframe');
+        const pdfModalLoading = document.getElementById('pdfModalLoading');
+        const pdfModalFallback = document.getElementById('pdfModalFallback');
+        const pdfModalDownload = document.getElementById('pdfModalDownload');
+
+        function openPdfModal(filename) {
+            pdfModalTitle.textContent = filename;
+            pdfModalDownload.href = `/download/${encodeURIComponent(filename)}`;
+            pdfModalDownload.setAttribute('download', filename);
+
+            // Show loading, hide fallback, reset iframe
+            pdfModalLoading.style.display = 'flex';
+            pdfModalFallback.style.display = 'none';
+            pdfModalIframe.src = 'about:blank';
+
+            pdfModal.classList.add('open');
+            document.body.style.overflow = 'hidden';
+
+            // Short delay then load
+            setTimeout(() => {
+                pdfModalIframe.src = `/view/${encodeURIComponent(filename)}`;
+            }, 80);
+        }
+
+        function closePdfModal() {
+            pdfModal.classList.remove('open');
+            document.body.style.overflow = '';
+            setTimeout(() => {
+                pdfModalIframe.src = 'about:blank';
+            }, 300);
+        }
+
+        pdfModalIframe.addEventListener('load', () => {
+            // If src is blank, do nothing
+            if (pdfModalIframe.src === 'about:blank' || pdfModalIframe.src === window.location.href.replace(window.location.pathname, '') + 'about:blank') return;
+            pdfModalLoading.style.display = 'none';
+            // Check if iframe actually loaded content (some browsers redirect for PDFs)
+            try {
+                const iframeDoc = pdfModalIframe.contentDocument || pdfModalIframe.contentWindow.document;
+                if (!iframeDoc || iframeDoc.body.innerHTML === '') throw new Error('empty');
+            } catch(e) {
+                // Cross-origin or PDF plugin — treat as success, PDF plugin handles it
+            }
+        });
+
+        pdfModalIframe.addEventListener('error', () => {
+            pdfModalLoading.style.display = 'none';
+            pdfModalFallback.style.display = 'flex';
+        });
+
+        pdfModalClose.addEventListener('click', closePdfModal);
+        pdfModal.addEventListener('click', e => {
+            if (e.target === pdfModal) closePdfModal();
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closePdfModal();
+        });
+
+        function initPdfButtons() {
+            document.querySelectorAll('.view-pdf-btn').forEach(btn => {
+                // Avoid double-attaching
+                if (btn.dataset.pdfBound) return;
+                btn.dataset.pdfBound = '1';
+                btn.addEventListener('click', () => openPdfModal(btn.dataset.filename));
+            });
+        }
+        initPdfButtons();
+    </script>
+</body>
+</html>

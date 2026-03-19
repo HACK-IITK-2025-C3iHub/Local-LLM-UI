@@ -7,6 +7,7 @@ from pathlib import Path
 # Security limits
 LLM_TIMEOUT = 600  # 10 minutes
 MAX_PROMPT_SIZE = 100000  # 100KB
+ALLOWED_MODELS = {'gemma3:4b', 'gemma3:1b', 'gemma3:12b', 'llama3:8b', 'mistral:7b'}
 
 
 def load_nist_framework(framework_path):
@@ -33,6 +34,10 @@ def load_nist_framework(framework_path):
 
 def call_local_llm(prompt, model="gemma3:4b"):
     """Call local LLM via Ollama (fully offline after model download)."""
+    # Validate model name against whitelist to prevent shell injection
+    if model not in ALLOWED_MODELS:
+        raise ValueError(f"Model '{model}' not allowed. Permitted: {ALLOWED_MODELS}")
+    
     # Check prompt size
     if len(prompt) > MAX_PROMPT_SIZE:
         raise ValueError(f"Prompt too large: {len(prompt)} characters (max: {MAX_PROMPT_SIZE})")
@@ -124,7 +129,7 @@ def extract_gaps_structured(gap_analysis_text):
         elif line and current_section:
             if current_section == 'summary':
                 gaps['summary'] += line + ' '
-            elif line.startswith(('-', '•', '*')) or line[0].isdigit():
+            elif line.startswith(('-', '•', '*')) or (len(line) > 0 and line[0].isdigit()):
                 gaps[current_section].append(line.lstrip('-•* 0123456789.'))
     
     return gaps

@@ -102,7 +102,7 @@ def check_ollama_installed():
     try:
         result = subprocess.run(['ollama', '--version'], capture_output=True, text=True)
         return result.returncode == 0
-    except:
+    except Exception:
         return False
 
 
@@ -112,7 +112,7 @@ def check_model_downloaded():
     try:
         result = subprocess.run(['ollama', 'list'], capture_output=True, text=True)
         return 'gemma3' in result.stdout.lower()
-    except:
+    except Exception:
         return False
 
 

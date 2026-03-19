@@ -50,6 +50,8 @@ The system identifies policy weaknesses, generates revised policies addressing t
 | **Multi-Format Input** | Supports `.txt`, `.pdf`, and `.docx` policies |
 | **PDF Output** | Professional formatted reports using ReportLab |
 | **Batch Processing** | Analyze multiple policies in one run |
+| **LAN Web Server** | Flask-based web UI — any device on the network can upload & analyze |
+| **Rate Limiting** | Per-IP job limits + serialized LLM queue prevent overload |
 | **100% Offline** | Zero network calls after initial setup |
 
 ---
@@ -66,6 +68,7 @@ flowchart TB
         PY["🐍 Python 3.8+<br/>Core Runtime"]
         CLI["⌨️ CLI Interface<br/>argparse module"]
         PDF["📄 PDF Engine<br/>ReportLab 4.0+"]
+        WEB["🌐 Flask Server<br/>LAN Hosting"]
     end
 
     subgraph LLMLayer["🤖 LLM LAYER"]
@@ -111,6 +114,7 @@ flowchart TB
 | `PyPDF2` | >= 3.0 | PDF text extraction |
 | `python-docx` | >= 0.8 | Word document parsing |
 | `reportlab` | >= 4.0 | PDF report generation |
+| `flask` | >= 3.0 | LAN web server & upload UI |
 | `ollama` | (runtime) | Local LLM execution |
 
 ---
@@ -379,13 +383,19 @@ Local-LLM/
 │   ├── policy_reviser.py          # Policy improvement generation
 │   ├── roadmap_generator.py       # Implementation roadmap creation
 │   ├── pdf_generator.py           # PDF report formatting (ReportLab)
-│   └── utils.py                   # File I/O utilities
+│   ├── utils.py                   # File I/O utilities
+│   ├── server.py                  # Flask web server (LAN hosting)
+│   ├── rate_limiter.py            # Thread-safe job queue & rate limiter
+│   └── templates/                 # HTML templates
+│       ├── index.html             # Upload page
+│       └── status.html            # Job status & download page
 │
 ├── data/
 │   ├── reference/                 # NIST CSF framework files
 │   └── test_policies/             # Sample policies for testing
 │
 ├── output/                        # Generated reports (TXT + PDF)
+├── uploads/                       # Temporary uploaded files (auto-cleaned)
 ├── docs/                          # Extended documentation
 ├── models/                        # Model storage (Ollama)
 │
@@ -399,12 +409,14 @@ Local-LLM/
 
 | Module | Lines | Purpose |
 |--------|-------|---------|
-| `main.py` | 216 | CLI interface, pipeline orchestration, report saving |
-| `gap_analyzer.py` | 131 | NIST framework loading, LLM prompt construction, gap extraction |
+| `main.py` | 247 | CLI interface, `--serve` mode, pipeline orchestration, report saving |
+| `gap_analyzer.py` | 135 | NIST framework loading, LLM prompt construction, gap extraction |
 | `policy_reviser.py` | 65 | Policy revision prompts, change summary generation |
 | `roadmap_generator.py` | 112 | Phased roadmap creation, executive summary |
-| `pdf_generator.py` | 167 | ReportLab PDF formatting with markdown parsing |
+| `pdf_generator.py` | 175 | ReportLab PDF formatting with markdown parsing |
 | `utils.py` | 78 | Multi-format document reading (TXT/PDF/DOCX), file validation |
+| `server.py` | 220 | Flask web server, file upload, download routes, security headers |
+| `rate_limiter.py` | 255 | Thread-safe job queue, per-IP rate limiting, auto-cleanup |
 
 ---
 
@@ -437,7 +449,7 @@ pip install -r requirements.txt
 ### Step 3: Run Analysis
 
 ```bash
-# Single policy
+# Single policy (CLI)
 python src/main.py --policy data/test_policies/isms_policy.txt
 
 # Batch processing
@@ -446,6 +458,25 @@ python src/main.py --batch data/test_policies/
 # Custom output directory
 python src/main.py --policy policy.txt --output results/
 ```
+
+### Step 3 (Alt): Start LAN Web Server
+
+```bash
+# Start web server on default port 5000
+python src/main.py --serve
+
+# Start on a custom port
+python src/main.py --serve --port 8080
+```
+
+Then open `http://localhost:5000` (or `http://<your-ip>:5000` from another device on the LAN) to upload policies via the browser.
+
+| Server Feature | Detail |
+|----------------|--------|
+| **LAN Access** | Binds to `0.0.0.0` — accessible from any device on the network |
+| **Rate Limiting** | Max 2 queued jobs per IP, 10 total queue capacity |
+| **Progress Tracking** | Real-time stage progress (1/6 → 6/6) with auto-refresh |
+| **Downloads** | All 10 reports (TXT + PDF) available for download on completion |
 
 ### Step 4: View Results
 
@@ -558,6 +589,13 @@ Edit prompt templates in:
 | `MAX_PROMPT_SIZE` | 100KB | `gap_analyzer.py` |
 | `MAX_POLICY_SIZE` | 50KB | `gap_analyzer.py` |
 | `MAX_FILE_SIZE` | 50MB | `utils.py` |
+| `ALLOWED_MODELS` | Whitelist | `gap_analyzer.py` |
+| `MAX_UPLOAD_SIZE` | 50MB | `server.py` |
+| `MAX_QUEUE_SIZE` | 10 jobs | `rate_limiter.py` |
+| `MAX_JOBS_PER_IP` | 2 jobs | `rate_limiter.py` |
+| `JOB_RESULT_TTL` | 3600s | `rate_limiter.py` |
+| Security Headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` | `server.py` |
+| Path Traversal Guard | Resolved path check | `server.py` |
 
 ### Running Tests
 

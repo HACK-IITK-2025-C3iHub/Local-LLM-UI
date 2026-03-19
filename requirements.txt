@@ -12,3 +12,6 @@ python-docx>=1.0.0
 reportlab>=4.0.0
 
 # Text Processing
+
+# Web Server (LAN hosting)
+flask>=3.0.0
