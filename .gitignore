@@ -7,6 +7,9 @@ __pycache__/
 venv/
 env/
 ENV/
+*.egg-info/
+dist/
+build/
 
 # Models (large files)
 models/*
@@ -15,6 +18,14 @@ models/*
 # Output files
 output/*
 !output/.gitkeep
+
+# Upload files
+uploads/*
+!uploads/.gitkeep
+
+# Environment & secrets
+.env
+*.log
 
 # IDE
 .vscode/
@@ -25,7 +36,3 @@ output/*
 # OS
 .DS_Store
 Thumbs.db
-
-# Data
-data/test_data/*
-docs/*
