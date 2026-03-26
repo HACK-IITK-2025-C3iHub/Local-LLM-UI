@@ -1,12 +1,24 @@
 """Utility functions for document processing and text extraction."""
 
 import os
+import re
 from pathlib import Path
 import PyPDF2
 from docx import Document
 
 # Security limits
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+
+# Zero-width / invisible Unicode characters to strip from extracted text
+_ZERO_WIDTH_CHARS = re.compile(
+    r'[\u200b\u200c\u200d\u200e\u200f\u202a-\u202e\u2060\u2061\u2062\u2063'
+    r'\u2064\ufeff\u00ad]'
+)
+
+
+def sanitize_text(text: str) -> str:
+    """Remove zero-width and invisible Unicode characters from text."""
+    return _ZERO_WIDTH_CHARS.sub('', text)
 
 
 def validate_file_size(file_path):
@@ -21,7 +33,7 @@ def read_text_file(file_path):
     """Read plain text file."""
     validate_file_size(file_path)
     with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+        return sanitize_text(f.read())
 
 
 def read_pdf_file(file_path):
@@ -33,7 +45,7 @@ def read_pdf_file(file_path):
             pdf_reader = PyPDF2.PdfReader(f)
             for page in pdf_reader.pages:
                 text.append(page.extract_text())
-        return '\n'.join(text)
+        return sanitize_text('\n'.join(text))
     except Exception as e:
         raise ValueError(f"Error reading PDF: {e}")
 
@@ -43,23 +55,21 @@ def read_docx_file(file_path):
     validate_file_size(file_path)
     try:
         doc = Document(file_path)
-        return '\n'.join([paragraph.text for paragraph in doc.paragraphs])
+        return sanitize_text('\n'.join([paragraph.text for paragraph in doc.paragraphs]))
     except Exception as e:
         raise ValueError(f"Error reading DOCX: {e}")
 
 
 def read_policy_document(file_path):
     """Read policy document based on file extension."""
-    # Validate file exists
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
-    
-    # Validate it's a file
+
     if not os.path.isfile(file_path):
         raise ValueError(f"Path is not a file: {file_path}")
-    
+
     ext = Path(file_path).suffix.lower()
-    
+
     if ext == '.txt':
         return read_text_file(file_path)
     elif ext == '.pdf':

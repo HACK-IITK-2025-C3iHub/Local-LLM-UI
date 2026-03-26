@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis History — Policy Gap Analyzer</title>
+    <meta name="description" content="Global history of all policy analysis jobs submitted to this server.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-primary:    #06080f;
+            --bg-secondary:  #0c1120;
+            --bg-card:       rgba(15, 23, 42, 0.6);
+            --accent:        #6366f1;
+            --accent-light:  #818cf8;
+            --accent-glow:   rgba(99,102,241,.25);
+            --violet:        #7c3aed;
+            --green:         #22c55e;
+            --amber:         #f59e0b;
+            --red:           #ef4444;
+            --blue:          #3b82f6;
+            --cyan:          #06b6d4;
+            --text-primary:  #f1f5f9;
+            --text-secondary:#94a3b8;
+            --text-muted:    #64748b;
+            --border:        rgba(30, 41, 59, 0.8);
+            --border-light:  rgba(51, 65, 85, 0.5);
+            --radius:        14px;
+            --radius-lg:     22px;
+            --shadow:        0 4px 24px rgba(0,0,0,.5);
+            --shadow-glow:   0 0 30px rgba(99,102,241,.12);
+            --transition:    .3s cubic-bezier(.4,0,.2,1);
+            --blur:          16px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary); color: var(--text-primary);
+            min-height: 100vh; line-height: 1.65; overflow-x: hidden;
+        }
+
+        #particleCanvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+        .bg-mesh {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background:
+                radial-gradient(ellipse 800px 500px at 15% 15%, rgba(99,102,241,.07), transparent),
+                radial-gradient(ellipse 600px 600px at 85% 80%, rgba(6,182,212,.05), transparent);
+            animation: meshFloat 25s ease-in-out infinite alternate;
+        }
+        @keyframes meshFloat {
+            0%   { transform: translate(0,0) scale(1); }
+            100% { transform: translate(-35px,25px) scale(1.06); }
+        }
+
+        .container {
+            position: relative; z-index: 1;
+            max-width: 820px; margin: 0 auto;
+            padding: 2.5rem 1.5rem 5rem;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in { animation: fadeInUp .7s cubic-bezier(.16,1,.3,1) both; }
+        .animate-in-1 { animation-delay: .05s; }
+        .animate-in-2 { animation-delay: .15s; }
+        .animate-in-3 { animation-delay: .22s; }
+
+        /* BACK LINK */
+        .back-link {
+            display: inline-flex; align-items: center; gap: .4rem;
+            color: var(--text-secondary); text-decoration: none;
+            font-size: .85rem; margin-bottom: 1.8rem;
+            transition: color var(--transition); font-weight: 500;
+        }
+        .back-link:hover { color: var(--accent-light); }
+
+        /* HEADER */
+        h1 {
+            font-size: 2rem; font-weight: 900; letter-spacing: -.02em;
+            background: linear-gradient(135deg, #fff, var(--accent-light), var(--cyan), #fff);
+            background-size: 300% 100%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 6s ease infinite;
+            margin-bottom: .4rem;
+        }
+        @keyframes gradientShift {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .page-sub {
+            color: var(--text-muted); font-size: .85rem;
+            margin-bottom: 2rem;
+        }
+
+        /* JOB CARD */
+        .job-card {
+            display: flex; align-items: center; gap: 1rem;
+            background: var(--bg-card);
+            backdrop-filter: blur(var(--blur));
+            -webkit-backdrop-filter: blur(var(--blur));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem 1.25rem;
+            margin-bottom: .75rem;
+            text-decoration: none;
+            color: inherit;
+            transition: all var(--transition);
+            position: relative; overflow: hidden;
+            animation: fadeInUp .6s cubic-bezier(.16,1,.3,1) both;
+        }
+        .job-card::before {
+            content: '';
+            position: absolute; inset: 0; border-radius: var(--radius); padding: 1px;
+            background: linear-gradient(135deg, rgba(99,102,241,.3), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            pointer-events: none; opacity: 0;
+            transition: opacity var(--transition);
+        }
+        .job-card:hover::before { opacity: 1; }
+        .job-card:hover {
+            border-color: rgba(99,102,241,.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,.3), 0 0 20px var(--accent-glow);
+        }
+        .job-card-main { flex: 1; min-width: 0; }
+        .job-filename {
+            font-weight: 700; font-size: .9rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .job-meta {
+            font-size: .73rem; color: var(--text-muted);
+            margin-top: .25rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .job-card-status { flex-shrink: 0; }
+
+        /* BADGE */
+        .badge {
+            display: inline-block;
+            padding: .3rem .75rem; border-radius: 999px;
+            font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+        }
+        .badge.queued  { background: rgba(59,130,246,.15); border: 1px solid rgba(59,130,246,.3); color: var(--blue); }
+        .badge.running { background: rgba(245,158,11,.15); border: 1px solid rgba(245,158,11,.3); color: var(--amber); }
+        .badge.done    { background: rgba(34,197,94,.15);  border: 1px solid rgba(34,197,94,.3);  color: var(--green); }
+        .badge.error   { background: rgba(239,68,68,.15);  border: 1px solid rgba(239,68,68,.3);  color: var(--red); }
+
+        /* EMPTY STATE */
+        .empty-state {
+            text-align: center; padding: 4rem 2rem;
+            color: var(--text-muted);
+        }
+
+        /* FOOTER */
+        .footer-divider {
+            width: 40px; height: 2px; margin: 2.5rem auto 1rem;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            border-radius: 999px;
+        }
+        footer {
+            text-align: center; font-size: .73rem; color: var(--text-muted);
+        }
+        footer a { color: var(--accent-light); text-decoration: none; }
+
+        @media (max-width: 600px) {
+            .container { padding: 1.5rem 1rem 3rem; }
+            h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="particleCanvas"></canvas>
+    <div class="bg-mesh"></div>
+
+    <div class="container">
+        <a href="/" class="back-link animate-in animate-in-1">← Back to Upload</a>
+
+        <h1 class="animate-in animate-in-2">📜 Analysis History</h1>
+        <p class="page-sub animate-in animate-in-2">All jobs from every device on this network, newest first.</p>
+
+        <div class="animate-in animate-in-3">
+        {% if jobs %}
+            {% for job in jobs %}
+            <a href="/status/{{ job.id }}" class="job-card" style="animation-delay: {{ loop.index * 0.04 }}s">
+                <div class="job-card-main">
+                    <div class="job-filename">{{ job.policy_filename }}</div>
+                    <div class="job-meta">
+                        ID: {{ job.id }}
+                        &bull; Device: {{ job.ip }}
+                        &bull; {{ job.submitted_at[:19].replace('T', ' ') if job.submitted_at else 'Unknown' }}
+                    </div>
+                </div>
+                <div class="job-card-status">
+                    <span class="badge {{ job.status }}">{{ job.status }}</span>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <div style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;">📭</div>
+                <p>No analysis jobs have been submitted yet.</p>
+                <a href="/" style="color: var(--accent-light); text-decoration: none; margin-top: 1rem; display: inline-block;">Upload a Policy Document →</a>
+            </div>
+        {% endif %}
+        </div>
+
+        <div class="footer-divider"></div>
+        <footer>Made with &#x1F497; by <strong>T-reXploit</strong> &nbsp;&bull;&nbsp; <a href="/">Upload</a></footer>
+    </div>
+
+    <script>
+        (() => {
+            const canvas = document.getElementById('particleCanvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            const N = 45, CONN = 130;
+            function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+            resize(); window.addEventListener('resize', resize);
+            class P {
+                constructor() { this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height; this.vx = (Math.random()-.5)*.35; this.vy = (Math.random()-.5)*.35; this.r = Math.random()*1.6+.5; this.a = Math.random()*.45+.15; }
+                update() { this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>canvas.width)this.vx*=-1; if(this.y<0||this.y>canvas.height)this.vy*=-1; }
+                draw() { ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fillStyle=`rgba(99,102,241,${this.a})`; ctx.fill(); }
+            }
+            for(let i=0;i<N;i++) particles.push(new P());
+            function animate() {
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                particles.forEach(p=>{p.update();p.draw();});
+                for(let i=0;i<particles.length;i++) for(let j=i+1;j<particles.length;j++){
+                    const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,d=Math.sqrt(dx*dx+dy*dy);
+                    if(d<CONN){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle=`rgba(99,102,241,${(1-d/CONN)*.1})`;ctx.lineWidth=.5;ctx.stroke();}
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+    </script>
+</body>
+</html>

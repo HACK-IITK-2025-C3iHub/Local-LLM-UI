@@ -34,6 +34,48 @@ UPLOAD_DIR = BASE_DIR / 'uploads'
 OUTPUT_DIR = BASE_DIR / 'output'
 TEMPLATE_DIR = Path(__file__).resolve().parent / 'templates'
 
+# Maps filename suffix -> human-readable document type label
+_DOC_TYPE_MAP = {
+    '_gap_analysis':        'Gap Analysis',
+    '_revised_policy':      'Revised Policy',
+    '_roadmap':             'Improvement Roadmap',
+    '_executive_summary':   'Executive Summary',
+    '_comprehensive_report':'Comprehensive Report',
+}
+
+_SUFFIXES = [
+    ('_gap_analysis.txt',         'Gap Analysis'),
+    ('_gap_analysis.pdf',         'Gap Analysis'),
+    ('_revised_policy.txt',       'Revised Policy'),
+    ('_revised_policy.pdf',       'Revised Policy'),
+    ('_roadmap.txt',              'Improvement Roadmap'),
+    ('_roadmap.pdf',              'Improvement Roadmap'),
+    ('_executive_summary.txt',    'Executive Summary'),
+    ('_executive_summary.pdf',    'Executive Summary'),
+    ('_comprehensive_report.txt', 'Comprehensive Report'),
+    ('_comprehensive_report.pdf', 'Comprehensive Report'),
+]
+
+
+def _collect_output_files(result):
+    """Return list of file dicts for a completed job result."""
+    files = []
+    if not result or 'output_base' not in result:
+        return files
+    base = result['output_base']
+    for suffix, doc_type in _SUFFIXES:
+        fpath = Path(f"{base}{suffix}")
+        if fpath.exists():
+            files.append({
+                'name':     fpath.name,
+                'path':     fpath.name,
+                'size':     f"{fpath.stat().st_size / 1024:.1f} KB",
+                'is_pdf':   fpath.suffix == '.pdf',
+                'doc_type': doc_type,
+            })
+    return files
+
+
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
@@ -56,8 +98,6 @@ def create_app():
     @app.after_request
     def set_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
-        # Allow same-origin iframes on /view/ (in-browser PDF viewer).
-        # All other routes keep the stricter DENY.
         if request.path.startswith('/view/'):
             response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         else:
@@ -65,8 +105,6 @@ def create_app():
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         return response
-
-
 
     # Ensure directories exist
     UPLOAD_DIR.mkdir(exist_ok=True)
@@ -78,12 +116,13 @@ def create_app():
     # Lazy import to avoid circular dependency
     from main import analyze_policy as _analyze_policy
 
-    def _wrapped_analyze(policy_path, output_dir, progress_callback=None):
+    def _wrapped_analyze(policy_path, output_dir, progress_callback=None, log_callback=None):
         """Adapter bridging the job queue to the existing analyze_policy()."""
         return _analyze_policy(
             policy_path,
             output_dir=output_dir,
             progress_callback=progress_callback,
+            log_callback=log_callback,
         )
 
     queue.set_analyze_function(_wrapped_analyze)
@@ -97,6 +136,12 @@ def create_app():
         """Upload form."""
         queue_info = queue.get_queue_info()
         return render_template('index.html', queue_info=queue_info)
+
+    @app.route('/history')
+    def history():
+        """Show global history of all analysis jobs (all devices)."""
+        all_jobs = queue.get_all_jobs()
+        return render_template('history.html', jobs=all_jobs)
 
     @app.route('/upload', methods=['POST'])
     def upload():
@@ -126,7 +171,6 @@ def create_app():
             safe_name = f"policy_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
 
         upload_path = UPLOAD_DIR / safe_name
-        # Avoid overwrites
         counter = 1
         while upload_path.exists():
             stem = Path(safe_name).stem
@@ -146,7 +190,6 @@ def create_app():
             )
         except ValueError as exc:
             flash(str(exc), 'error')
-            # Clean up uploaded file
             upload_path.unlink(missing_ok=True)
             return redirect(url_for('index'))
 
@@ -154,33 +197,14 @@ def create_app():
 
     @app.route('/status/<job_id>')
     def status(job_id):
-        """Job status page — auto-refreshes while queued/running."""
+        """Job status page."""
         info = queue.get_status(job_id)
         if info is None:
             abort(404)
 
-        # Collect download files if done
         output_files = []
         if info['status'] == 'done':
-            result = queue.get_result(job_id)
-            if result and 'output_base' in result:
-                base = result['output_base']
-                suffixes = [
-                    '_gap_analysis.txt', '_gap_analysis.pdf',
-                    '_revised_policy.txt', '_revised_policy.pdf',
-                    '_roadmap.txt', '_roadmap.pdf',
-                    '_executive_summary.txt', '_executive_summary.pdf',
-                    '_comprehensive_report.txt', '_comprehensive_report.pdf',
-                ]
-                for suffix in suffixes:
-                    fpath = Path(f"{base}{suffix}")
-                    if fpath.exists():
-                        output_files.append({
-                            'name': fpath.name,
-                            'path': fpath.name,
-                            'size': f"{fpath.stat().st_size / 1024:.1f} KB",
-                            'is_pdf': fpath.suffix == '.pdf',
-                        })
+            output_files = _collect_output_files(queue.get_result(job_id))
 
         return render_template(
             'status.html',
@@ -195,7 +219,6 @@ def create_app():
         if not safe:
             abort(400)
         fpath = (OUTPUT_DIR / safe).resolve()
-        # Path traversal protection: ensure resolved path is under OUTPUT_DIR
         if not str(fpath).startswith(str(OUTPUT_DIR.resolve())):
             abort(403)
         if not fpath.exists():
@@ -216,25 +239,7 @@ def create_app():
 
         output_files = []
         if info['status'] == 'done':
-            result = queue.get_result(job_id)
-            if result and 'output_base' in result:
-                base = result['output_base']
-                suffixes = [
-                    '_gap_analysis.txt', '_gap_analysis.pdf',
-                    '_revised_policy.txt', '_revised_policy.pdf',
-                    '_roadmap.txt', '_roadmap.pdf',
-                    '_executive_summary.txt', '_executive_summary.pdf',
-                    '_comprehensive_report.txt', '_comprehensive_report.pdf',
-                ]
-                for suffix in suffixes:
-                    fpath = Path(f"{base}{suffix}")
-                    if fpath.exists():
-                        output_files.append({
-                            'name': fpath.name,
-                            'path': fpath.name,
-                            'size': f"{fpath.stat().st_size / 1024:.1f} KB",
-                            'is_pdf': fpath.suffix == '.pdf',
-                        })
+            output_files = _collect_output_files(queue.get_result(job_id))
 
         return jsonify({**info, 'output_files': output_files})
 
@@ -249,7 +254,6 @@ def create_app():
             abort(403)
         if not fpath.exists():
             abort(404)
-        # as_attachment=False → browser will render PDF inline
         return send_from_directory(str(OUTPUT_DIR), safe, as_attachment=False)
 
     return app

@@ -422,6 +422,56 @@
             font-family: 'JetBrains Mono', monospace;
             margin-top: .1rem;
         }
+        .file-type-label {
+            display: inline-block;
+            font-size: .63rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .07em; padding: .15rem .55rem;
+            border-radius: 999px; margin-bottom: .2rem;
+            background: rgba(99,102,241,.15);
+            border: 1px solid rgba(99,102,241,.25);
+            color: var(--accent-light);
+        }
+        /* ===== LOG PANEL ===== */
+        .log-panel {
+            background: #050810;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-top: 1.2rem;
+        }
+        .log-panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: .6rem 1rem;
+            background: rgba(15,23,42,.6);
+            border-bottom: 1px solid var(--border);
+            font-size: .75rem; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: .06em;
+        }
+        .log-panel-header .log-count {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-light);
+        }
+        .log-body {
+            padding: .75rem 1rem;
+            max-height: 280px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .72rem;
+            line-height: 1.9;
+            color: #64748b;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(99,102,241,.3) transparent;
+        }
+        .log-body::-webkit-scrollbar { width: 4px; }
+        .log-body::-webkit-scrollbar-thumb { background: rgba(99,102,241,.3); border-radius: 4px; }
+        .log-line { display: block; border-bottom: 1px solid rgba(30,41,59,.3); padding: .05rem 0; }
+        .log-line:last-child { border-bottom: none; }
+        .log-line.info  { color: #94a3b8; }
+        .log-line.step  { color: #818cf8; font-weight: 600; }
+        .log-line.save  { color: #22c55e; }
+        .log-line.warn  { color: #f59e0b; }
+        .log-line.done  { color: #22c55e; font-weight: 700; }
+        .log-empty { color: var(--text-muted); font-style: italic; font-size: .78rem; text-align: center; padding: 1rem 0; }
         .file-card-actions {
             display: flex; gap: .5rem;
         }
@@ -758,6 +808,7 @@
                     <div class="file-card-top">
                         <span class="file-icon">{% if file.is_pdf %}📕{% else %}📝{% endif %}</span>
                         <div class="file-info">
+                            <div class="file-type-label">{{ file.doc_type }}</div>
                             <div class="file-name" title="{{ file.name }}">{{ file.name }}</div>
                             <div class="file-size">{{ file.size }}</div>
                         </div>
@@ -793,6 +844,23 @@
                 {% endif %}
                 <tr><td>Device</td><td>{{ job.ip }}</td></tr>
             </table>
+
+            <!-- LOG PANEL -->
+            <div class="log-panel">
+                <div class="log-panel-header">
+                    <span>📋 Analysis Logs</span>
+                    <span class="log-count" id="logCount">{{ job.logs | length }} lines</span>
+                </div>
+                <div class="log-body" id="logBody">
+                    {% if job.logs %}
+                        {% for line in job.logs %}
+                        <span class="log-line {% if '[' in line and '/' in line %}step{% elif '✓' in line or 'saved' in line %}save{% elif '⚠' in line or 'failed' in line %}warn{% elif 'COMPLETE' in line %}done{% else %}info{% endif %}">{{ line }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <div class="log-empty" id="logEmpty">No logs yet — they will appear once the job starts.</div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <div class="footer-divider animate-in animate-in-5"></div>
@@ -947,6 +1015,7 @@
                     <div class="file-card-top">
                         <span class="file-icon">${isPdf ? '📕' : '📝'}</span>
                         <div class="file-info">
+                            <div class="file-type-label">${f.doc_type || ''}</div>
                             <div class="file-name" title="${f.name}">${f.name}</div>
                             <div class="file-size">${f.size}</div>
                         </div>
@@ -1119,14 +1188,49 @@
                     if (!res.ok) return;
                     const data = await res.json();
                     applyStatus(data);
+                    updateLogs(data.logs || []);
                     if (data.status !== 'queued' && data.status !== 'running') {
                         clearInterval(pollInterval);
+                        // One final fetch to capture any trailing logs
+                        setTimeout(async () => {
+                            const r2 = await fetch(`/api/status/${JOB_ID}`);
+                            if (r2.ok) { const d2 = await r2.json(); updateLogs(d2.logs || []); }
+                        }, 1500);
                     }
-                } catch (e) {
-                    // Network issue; will retry next tick
-                }
+                } catch (e) { /* Network issue — will retry */ }
             }, 5000);
         }
+
+        /* ============================
+         *  LIVE LOG UPDATER
+         * ============================ */
+        function classifyLog(line) {
+            if (/\[\d+\/\d+\]/.test(line)) return 'step';
+            if (/✓/.test(line) || /saved/i.test(line)) return 'save';
+            if (/⚠/.test(line) || /failed/i.test(line)) return 'warn';
+            if (/COMPLETE/.test(line)) return 'done';
+            return 'info';
+        }
+
+        function updateLogs(logs) {
+            const body    = document.getElementById('logBody');
+            const counter = document.getElementById('logCount');
+            if (!body || !logs || logs.length === 0) return;
+            const empty = document.getElementById('logEmpty');
+            if (empty) empty.remove();
+            const existing = body.querySelectorAll('.log-line').length;
+            for (let i = existing; i < logs.length; i++) {
+                const span = document.createElement('span');
+                span.className = 'log-line ' + classifyLog(logs[i]);
+                span.textContent = logs[i];
+                body.appendChild(span);
+            }
+            if (counter) counter.textContent = logs.length + ' lines';
+            body.scrollTop = body.scrollHeight;
+        }
+
+        // Seed scroll position for initial server-rendered logs
+        (() => { const b = document.getElementById('logBody'); if (b) b.scrollTop = b.scrollHeight; })();
 
         /* ============================
          *  PDF MODAL
