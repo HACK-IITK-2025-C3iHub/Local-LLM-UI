@@ -16,7 +16,7 @@ from roadmap_generator import generate_improvement_roadmap, generate_executive_s
 from pdf_generator import generate_all_pdfs
 
 
-def analyze_policy(policy_path, output_dir='output', progress_callback=None, log_callback=None):
+def analyze_policy(policy_path, output_dir='output', progress_callback=None):
     """
     Main function to analyze policy document and generate comprehensive report.
     
@@ -24,7 +24,6 @@ def analyze_policy(policy_path, output_dir='output', progress_callback=None, log
         policy_path: Path to policy document (TXT, PDF, or DOCX)
         output_dir: Directory to save output reports
         progress_callback: Optional callable(stage_number) for progress tracking
-        log_callback: Optional callable(str) for detailed logging
     
     Returns:
         Dictionary containing all analysis results
@@ -32,72 +31,66 @@ def analyze_policy(policy_path, output_dir='output', progress_callback=None, log
     def _progress(stage):
         if progress_callback:
             progress_callback(stage)
-
-    def _log(msg):
-        print(msg)
-        if log_callback:
-            log_callback(msg)
-
-    _log(f"\n{'='*60}")
-    _log("LOCAL LLM POLICY GAP ANALYSIS MODULE")
-    _log(f"{'='*60}\n")
+    print(f"\n{'='*60}")
+    print("LOCAL LLM POLICY GAP ANALYSIS MODULE")
+    print(f"{'='*60}\n")
     
     # Load policy document
     _progress(1)
-    _log(f"[1/6] Loading policy document: {policy_path}")
+    print(f"[1/6] Loading policy document: {policy_path}")
     policy_content = read_policy_document(policy_path)
     policy_name = Path(policy_path).stem
-    _log(f"      Policy loaded: {len(policy_content)} characters\n")
+    print(f"      Policy loaded: {len(policy_content)} characters\n")
     
     # Load NIST framework
     _progress(2)
-    _log("[2/6] Loading NIST Cybersecurity Framework standards...")
+    print("[2/6] Loading NIST Cybersecurity Framework standards...")
     # Resolve data/reference relative to project root, not cwd
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     framework_path = os.path.join(project_root, 'data', 'reference')
     nist_framework = load_nist_framework(framework_path)
-    _log(f"      Framework loaded: {len(nist_framework)} characters\n")
+    print(f"      Framework loaded: {len(nist_framework)} characters\n")
     
     # Analyze gaps
     _progress(3)
-    _log("[3/6] Analyzing policy gaps (this may take 1-2 minutes)...")
+    print("[3/6] Analyzing policy gaps (this may take 1-2 minutes)...")
     gap_analysis = analyze_policy_gaps(policy_content, nist_framework)
-    _log(f"      Gap analysis complete: {len(gap_analysis)} characters\n")
+    print(f"      Gap analysis complete: {len(gap_analysis)} characters\n")
     
     # Revise policy
     _progress(4)
-    _log("[4/6] Generating revised policy (this may take 2-3 minutes)...")
+    print("[4/6] Generating revised policy (this may take 2-3 minutes)...")
     revised_policy = revise_policy(policy_content, gap_analysis, nist_framework)
-    _log(f"      Revised policy generated: {len(revised_policy)} characters\n")
+    print(f"      Revised policy generated: {len(revised_policy)} characters\n")
     
     # Generate roadmap
     _progress(5)
-    _log("[5/6] Creating improvement roadmap (this may take 1-2 minutes)...")
+    print("[5/6] Creating improvement roadmap (this may take 1-2 minutes)...")
     roadmap = generate_improvement_roadmap(gap_analysis, policy_name)
-    _log(f"      Roadmap generated: {len(roadmap)} characters\n")
+    print(f"      Roadmap generated: {len(roadmap)} characters\n")
     
     # Generate executive summary
     _progress(6)
-    _log("[6/6] Generating executive summary...")
+    print("[6/6] Generating executive summary...")
     exec_summary = generate_executive_summary(gap_analysis, roadmap)
-    _log(f"      Executive summary complete\n")
+    print(f"      Executive summary complete\n")
     
     # Save outputs
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_base = os.path.join(output_dir, f"{policy_name}_{timestamp}")
     
-    _log(f"Saving reports to: {output_dir}/")
+    print(f"Saving reports to: {output_dir}/")
     save_output(gap_analysis, f"{output_base}_gap_analysis.txt")
-    _log(f"  ✓ Gap analysis saved")
+    print(f"  ✓ Gap analysis saved")
     
     save_output(revised_policy, f"{output_base}_revised_policy.txt")
-    _log(f"  ✓ Revised policy saved")
+    print(f"  ✓ Revised policy saved")
     
     save_output(roadmap, f"{output_base}_roadmap.txt")
-    _log(f"  ✓ Improvement roadmap saved")
+    print(f"  ✓ Improvement roadmap saved")
     
     save_output(exec_summary, f"{output_base}_executive_summary.txt")
-    _log(f"  ✓ Executive summary saved")
+    print(f"  ✓ Executive summary saved")
     
     # Generate comprehensive report
     comprehensive_report = f"""
@@ -135,10 +128,10 @@ END OF REPORT
 """
     
     save_output(comprehensive_report, f"{output_base}_comprehensive_report.txt")
-    _log(f"  ✓ Comprehensive report saved\n")
+    print(f"  ✓ Comprehensive report saved\n")
     
     # Generate PDF versions
-    _log("Generating PDF reports with formatted output...")
+    print("Generating PDF reports with formatted output...")
     results_dict = {
         'policy_name': policy_name,
         'gap_analysis': gap_analysis,
@@ -150,14 +143,14 @@ END OF REPORT
     try:
         pdf_files = generate_all_pdfs(results_dict, output_base)
         for pdf_file in pdf_files:
-            _log(f"  ✓ PDF saved: {Path(pdf_file).name}")
+            print(f"  ✓ PDF saved: {Path(pdf_file).name}")
     except Exception as e:
-        _log(f"  ⚠ PDF generation failed: {e}")
-        _log(f"  Note: Text reports are still available")
+        print(f"  ⚠ PDF generation failed: {e}")
+        print(f"  Note: Text reports are still available")
     
-    _log(f"\n{'='*60}")
-    _log("ANALYSIS COMPLETE")
-    _log(f"{'='*60}\n")
+    print(f"\n{'='*60}")
+    print("ANALYSIS COMPLETE")
+    print(f"{'='*60}\n")
     
     return {
         'policy_name': policy_name,
