@@ -8,6 +8,24 @@ from docx import Document
 # Security limits
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
+ZERO_WIDTH_CHARS = [
+    '\u200b', # Zero-width space
+    '\u200c', # Zero-width non-joiner
+    '\u200d', # Zero-width joiner
+    '\ufeff', # Zero-width no-break space
+    '\u200e', # Left-to-right mark
+    '\u200f', # Right-to-left mark
+    '\u00ad', # Soft hyphen
+]
+
+def sanitize_text(text):
+    """Remove hidden/zero-width characters."""
+    if not text:
+        return text
+    for char in ZERO_WIDTH_CHARS:
+        text = text.replace(char, '')
+    return text
+
 
 def validate_file_size(file_path):
     """Validate file size before processing."""
@@ -21,7 +39,7 @@ def read_text_file(file_path):
     """Read plain text file."""
     validate_file_size(file_path)
     with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
+        return sanitize_text(f.read())
 
 
 def read_pdf_file(file_path):
@@ -33,7 +51,7 @@ def read_pdf_file(file_path):
             pdf_reader = PyPDF2.PdfReader(f)
             for page in pdf_reader.pages:
                 text.append(page.extract_text())
-        return '\n'.join(text)
+        return sanitize_text('\n'.join(text))
     except Exception as e:
         raise ValueError(f"Error reading PDF: {e}")
 
@@ -43,7 +61,7 @@ def read_docx_file(file_path):
     validate_file_size(file_path)
     try:
         doc = Document(file_path)
-        return '\n'.join([paragraph.text for paragraph in doc.paragraphs])
+        return sanitize_text('\n'.join([paragraph.text for paragraph in doc.paragraphs]))
     except Exception as e:
         raise ValueError(f"Error reading DOCX: {e}")
 
