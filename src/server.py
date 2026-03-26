@@ -78,13 +78,12 @@ def create_app():
     # Lazy import to avoid circular dependency
     from main import analyze_policy as _analyze_policy
 
-    def _wrapped_analyze(policy_path, output_dir, progress_callback=None, log_callback=None):
+    def _wrapped_analyze(policy_path, output_dir, progress_callback=None):
         """Adapter bridging the job queue to the existing analyze_policy()."""
         return _analyze_policy(
             policy_path,
             output_dir=output_dir,
             progress_callback=progress_callback,
-            log_callback=log_callback,
         )
 
     queue.set_analyze_function(_wrapped_analyze)
@@ -98,12 +97,6 @@ def create_app():
         """Upload form."""
         queue_info = queue.get_queue_info()
         return render_template('index.html', queue_info=queue_info)
-
-    @app.route('/history')
-    def history():
-        """Show global history of all analysis jobs."""
-        all_jobs = queue.get_all_jobs()
-        return render_template('history.html', jobs=all_jobs)
 
     @app.route('/upload', methods=['POST'])
     def upload():
@@ -173,18 +166,13 @@ def create_app():
             if result and 'output_base' in result:
                 base = result['output_base']
                 suffixes = [
-                    ('_gap_analysis.txt',        'Gap Analysis'),
-                    ('_gap_analysis.pdf',        'Gap Analysis'),
-                    ('_revised_policy.txt',      'Revised Policy'),
-                    ('_revised_policy.pdf',      'Revised Policy'),
-                    ('_roadmap.txt',             'Improvement Roadmap'),
-                    ('_roadmap.pdf',             'Improvement Roadmap'),
-                    ('_executive_summary.txt',   'Executive Summary'),
-                    ('_executive_summary.pdf',   'Executive Summary'),
-                    ('_comprehensive_report.txt','Comprehensive Report'),
-                    ('_comprehensive_report.pdf','Comprehensive Report'),
+                    '_gap_analysis.txt', '_gap_analysis.pdf',
+                    '_revised_policy.txt', '_revised_policy.pdf',
+                    '_roadmap.txt', '_roadmap.pdf',
+                    '_executive_summary.txt', '_executive_summary.pdf',
+                    '_comprehensive_report.txt', '_comprehensive_report.pdf',
                 ]
-                for suffix, doc_type in suffixes:
+                for suffix in suffixes:
                     fpath = Path(f"{base}{suffix}")
                     if fpath.exists():
                         output_files.append({
@@ -192,7 +180,6 @@ def create_app():
                             'path': fpath.name,
                             'size': f"{fpath.stat().st_size / 1024:.1f} KB",
                             'is_pdf': fpath.suffix == '.pdf',
-                            'doc_type': doc_type,
                         })
 
         return render_template(
@@ -233,18 +220,13 @@ def create_app():
             if result and 'output_base' in result:
                 base = result['output_base']
                 suffixes = [
-                    ('_gap_analysis.txt',        'Gap Analysis'),
-                    ('_gap_analysis.pdf',        'Gap Analysis'),
-                    ('_revised_policy.txt',      'Revised Policy'),
-                    ('_revised_policy.pdf',      'Revised Policy'),
-                    ('_roadmap.txt',             'Improvement Roadmap'),
-                    ('_roadmap.pdf',             'Improvement Roadmap'),
-                    ('_executive_summary.txt',   'Executive Summary'),
-                    ('_executive_summary.pdf',   'Executive Summary'),
-                    ('_comprehensive_report.txt','Comprehensive Report'),
-                    ('_comprehensive_report.pdf','Comprehensive Report'),
+                    '_gap_analysis.txt', '_gap_analysis.pdf',
+                    '_revised_policy.txt', '_revised_policy.pdf',
+                    '_roadmap.txt', '_roadmap.pdf',
+                    '_executive_summary.txt', '_executive_summary.pdf',
+                    '_comprehensive_report.txt', '_comprehensive_report.pdf',
                 ]
-                for suffix, doc_type in suffixes:
+                for suffix in suffixes:
                     fpath = Path(f"{base}{suffix}")
                     if fpath.exists():
                         output_files.append({
@@ -252,7 +234,6 @@ def create_app():
                             'path': fpath.name,
                             'size': f"{fpath.stat().st_size / 1024:.1f} KB",
                             'is_pdf': fpath.suffix == '.pdf',
-                            'doc_type': doc_type,
                         })
 
         return jsonify({**info, 'output_files': output_files})

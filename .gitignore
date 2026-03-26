@@ -16,10 +16,6 @@ models/*
 output/*
 !output/.gitkeep
 
-# Upload files
-uploads/*
-!uploads/.gitkeep
-
 # IDE
 .vscode/
 .idea/

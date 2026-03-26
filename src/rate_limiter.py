@@ -24,7 +24,6 @@ class Job:
         'id', 'ip', 'policy_path', 'policy_filename', 'output_dir',
         'status', 'progress_stage', 'progress_total', 'result',
         'error_msg', 'submitted_at', 'started_at', 'completed_at',
-        'logs',
     )
 
     def __init__(self, job_id, ip, policy_path, policy_filename, output_dir):
@@ -41,7 +40,6 @@ class Job:
         self.submitted_at = datetime.now()
         self.started_at = None
         self.completed_at = None
-        self.logs = []
 
     def to_dict(self):
         """Serialize job state to a dictionary."""
@@ -57,7 +55,6 @@ class Job:
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'has_result': self.result is not None,
-            'logs': self.logs,
         }
 
 
@@ -106,7 +103,7 @@ class JobQueue:
     def set_analyze_function(self, fn):
         """Register the analysis function (avoids circular imports).
 
-        fn signature: fn(policy_path, output_dir, progress_callback, log_callback) -> dict
+        fn signature: fn(policy_path, output_dir, progress_callback) -> dict
         """
         self._analyze_fn = fn
 
@@ -186,34 +183,6 @@ class JobQueue:
             'max_per_ip': MAX_JOBS_PER_IP,
         }
 
-    def get_jobs_for_ip(self, ip):
-        """Get all jobs for a specific IP."""
-        with self._queue_lock:
-            jids = [jid for jid, j in self._jobs.items() if j.ip == ip]
-
-        user_jobs = []
-        for jid in jids:
-            info = self.get_status(jid)
-            if info:
-                user_jobs.append(info)
-
-        user_jobs.sort(key=lambda x: x['submitted_at'], reverse=True)
-        return user_jobs
-
-    def get_all_jobs(self):
-        """Get all jobs across every IP, sorted newest first."""
-        with self._queue_lock:
-            jids = list(self._jobs.keys())
-
-        all_jobs = []
-        for jid in jids:
-            info = self.get_status(jid)
-            if info:
-                all_jobs.append(info)
-
-        all_jobs.sort(key=lambda x: x['submitted_at'], reverse=True)
-        return all_jobs
-
     # ------------------------------------------------------------------
     # Background workers
     # ------------------------------------------------------------------
@@ -251,9 +220,6 @@ class JobQueue:
 
         def progress_callback(stage):
             job.progress_stage = stage
-            
-        def log_callback(msg):
-            job.logs.append(msg)
 
         try:
             if self._analyze_fn is None:
@@ -263,7 +229,6 @@ class JobQueue:
                 job.policy_path,
                 job.output_dir,
                 progress_callback=progress_callback,
-                log_callback=log_callback,
             )
             job.result = result
             job.status = 'done'
