@@ -24,6 +24,10 @@ The system identifies policy weaknesses, generates revised policies addressing t
 
 ## What's New (March 2026)
 
+- **Persistent Job History**: Analysis history now persists across server restarts via JSON storage (`data/job_history.json`)
+- **Smart History Filtering**: History automatically hides jobs whose output files have been deleted
+- **Fixed PDF Downloads**: Resolved path handling issues for PDF downloads and inline viewing on Windows
+- **Fixed PDF Modal Viewer**: View button now correctly opens PDFs in the inline modal viewer
 - Added live analysis log streaming on the status page so users can watch each pipeline step in real time.
 - Added global analysis history page (`/history`) to view jobs from all LAN devices in one place.
 - Added JSON status API (`/api/status/<job_id>`) for smooth in-page updates without full-page refresh.
@@ -66,6 +70,7 @@ The system identifies policy weaknesses, generates revised policies addressing t
 | **Rate Limiting**          | Per-IP job limits + serialized LLM queue prevent overload                   |
 | **Live Status & Logs**     | AJAX status polling and real-time step logs on the status page              |
 | **Global Job History**     | Dedicated `/history` page listing all jobs across LAN clients               |
+| **Persistent History**     | Job history survives server restarts and auto-cleans deleted files          |
 | **Input Sanitization**     | Removes invisible/zero-width Unicode artifacts from extracted document text |
 | **100% Offline**           | Zero network calls after initial setup                                      |
 
@@ -408,7 +413,8 @@ Local-LLM/
 │
 ├── data/
 │   ├── reference/                 # NIST CSF framework files
-│   └── test_policies/             # Sample policies for testing
+│   ├── test_policies/             # Sample policies for testing
+│   └── job_history.json           # Persistent job history (auto-generated)
 │
 ├── output/                        # Generated reports (TXT + PDF)
 ├── uploads/                       # Uploaded policy files (`.gitkeep` retained)
@@ -430,8 +436,8 @@ Local-LLM/
 | `roadmap_generator.py` | 111   | Phased roadmap creation, executive summary                                        |
 | `pdf_generator.py`     | 175   | ReportLab PDF formatting with markdown parsing                                    |
 | `utils.py`             | 87    | Multi-format document reading (TXT/PDF/DOCX), size checks, text sanitization      |
-| `server.py`            | 289   | Flask web server, upload/status/history routes, JSON status API, security headers |
-| `rate_limiter.py`      | 289   | Thread-safe singleton queue, per-IP limits, job logs/history, TTL cleanup         |
+| `server.py`            | 295   | Flask web server, upload/status/history routes, JSON status API, security headers |
+| `rate_limiter.py`      | 380   | Thread-safe queue, persistent history, file validation, per-IP limits, TTL cleanup |
 
 ---
 
@@ -493,6 +499,8 @@ Then open `http://localhost:5000` (or `http://<your-ip>:5000` from another devic
 | **Progress Tracking** | Real-time stage progress (1/6 → 6/6) via AJAX polling (no full-page refresh) |
 | **Live Logs**         | Detailed per-stage execution logs stream to the status page while running    |
 | **Global History**    | `/history` shows all submitted jobs across all LAN clients                   |
+| **Persistent Storage**| Job history saved to `data/job_history.json` and survives server restarts   |
+| **Smart Cleanup**     | Automatically removes jobs from history when output files are deleted        |
 | **Downloads**         | All 10 reports (TXT + PDF) available for download on completion              |
 
 ### Web Routes

@@ -16,13 +16,14 @@ from roadmap_generator import generate_improvement_roadmap, generate_executive_s
 from pdf_generator import generate_all_pdfs
 
 
-def analyze_policy(policy_path, output_dir='output', progress_callback=None, log_callback=None):
+def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callback=None, log_callback=None):
     """
     Main function to analyze policy document and generate comprehensive report.
 
     Args:
         policy_path: Path to policy document (TXT, PDF, or DOCX)
         output_dir: Directory to save output reports
+        job_id: Optional job ID for naming output files
         progress_callback: Optional callable(stage_number) for progress tracking
         log_callback: Optional callable(str) for detailed log streaming to the UI
 
@@ -83,8 +84,12 @@ def analyze_policy(policy_path, output_dir='output', progress_callback=None, log
     _log(f"      Executive summary complete\n")
 
     # Save outputs
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_base = os.path.join(output_dir, f"{policy_name}_{timestamp}")
+    if job_id:
+        output_base = os.path.join(output_dir, job_id)
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        policy_name = Path(policy_path).stem
+        output_base = os.path.join(output_dir, f"{policy_name}_{timestamp}")
 
     _log(f"Saving reports to: {output_dir}/")
     save_output(gap_analysis, f"{output_base}_gap_analysis.txt")

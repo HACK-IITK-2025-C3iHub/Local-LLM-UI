@@ -7,6 +7,7 @@ through the rate_limiter.JobQueue.
 
 import os
 import sys
+import uuid
 import secrets
 from pathlib import Path
 from datetime import datetime
@@ -62,13 +63,14 @@ def _collect_output_files(result):
     files = []
     if not result or 'output_base' not in result:
         return files
-    base = result['output_base']
+    base = Path(result['output_base'])
     for suffix, doc_type in _SUFFIXES:
-        fpath = Path(f"{base}{suffix}")
+        fpath = Path(f"{result['output_base']}{suffix}")
         if fpath.exists():
+            rel_path = fpath.relative_to(OUTPUT_DIR)
             files.append({
                 'name':     fpath.name,
-                'path':     fpath.name,
+                'path':     str(rel_path).replace('\\', '/'),
                 'size':     f"{fpath.stat().st_size / 1024:.1f} KB",
                 'is_pdf':   fpath.suffix == '.pdf',
                 'doc_type': doc_type,
@@ -116,11 +118,12 @@ def create_app():
     # Lazy import to avoid circular dependency
     from main import analyze_policy as _analyze_policy
 
-    def _wrapped_analyze(policy_path, output_dir, progress_callback=None, log_callback=None):
+    def _wrapped_analyze(policy_path, output_dir, job_id=None, progress_callback=None, log_callback=None):
         """Adapter bridging the job queue to the existing analyze_policy()."""
         return _analyze_policy(
             policy_path,
             output_dir=output_dir,
+            job_id=job_id,
             progress_callback=progress_callback,
             log_callback=log_callback,
         )
@@ -165,28 +168,37 @@ def create_app():
             )
             return redirect(url_for('index'))
 
-        # Save uploaded file
+        # Save uploaded file in a job-specific directory
+        job_id = uuid.uuid4().hex[:12]
+        job_upload_dir = UPLOAD_DIR / job_id
+        job_upload_dir.mkdir(exist_ok=True)
+        
         safe_name = secure_filename(file.filename)
         if not safe_name:
             safe_name = f"policy_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
 
-        upload_path = UPLOAD_DIR / safe_name
+        upload_path = job_upload_dir / safe_name
         counter = 1
         while upload_path.exists():
             stem = Path(safe_name).stem
-            upload_path = UPLOAD_DIR / f"{stem}_{counter}{ext}"
+            upload_path = job_upload_dir / f"{stem}_{counter}{ext}"
             counter += 1
 
         file.save(str(upload_path))
+
+        # Create job-specific output directory
+        job_output_dir = OUTPUT_DIR / job_id
+        job_output_dir.mkdir(exist_ok=True)
 
         # Submit to job queue
         client_ip = request.remote_addr or '0.0.0.0'
         try:
             job_id, position = queue.submit(
+                job_id=job_id,
                 ip=client_ip,
                 policy_path=str(upload_path),
                 policy_filename=file.filename,
-                output_dir=str(OUTPUT_DIR),
+                output_dir=str(job_output_dir),
             )
         except ValueError as exc:
             flash(str(exc), 'error')
@@ -212,13 +224,16 @@ def create_app():
             output_files=output_files,
         )
 
-    @app.route('/download/<filename>')
+    @app.route('/download/<path:filename>')
     def download(filename):
         """Download a generated report file."""
-        safe = secure_filename(filename)
+        from urllib.parse import unquote
+        # Decode URL encoding and normalize path separators for Windows
+        filename = unquote(filename).replace('/', os.sep)
+        safe = secure_filename(Path(filename).name)
         if not safe:
             abort(400)
-        fpath = (OUTPUT_DIR / safe).resolve()
+        fpath = (OUTPUT_DIR / filename).resolve()
         if not str(fpath).startswith(str(OUTPUT_DIR.resolve())):
             abort(403)
         if not fpath.exists():
@@ -227,7 +242,7 @@ def create_app():
         # Determine correct MIME type
         mime_type = 'application/pdf' if fpath.suffix == '.pdf' else 'text/plain'
         
-        response = send_from_directory(str(OUTPUT_DIR), safe, as_attachment=True)
+        response = send_from_directory(str(fpath.parent), safe, as_attachment=True)
         response.headers['Content-Type'] = mime_type
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Content-Disposition'] = f'attachment; filename="{safe}"'
@@ -251,19 +266,22 @@ def create_app():
 
         return jsonify({**info, 'output_files': output_files})
 
-    @app.route('/view/<filename>')
+    @app.route('/view/<path:filename>')
     def view_file_route(filename):
         """Serve a generated report file inline (for in-browser PDF viewing)."""
-        safe = secure_filename(filename)
+        from urllib.parse import unquote
+        # Decode URL encoding and normalize path separators for Windows
+        filename = unquote(filename).replace('/', os.sep)
+        safe = secure_filename(Path(filename).name)
         if not safe:
             abort(400)
-        fpath = (OUTPUT_DIR / safe).resolve()
+        fpath = (OUTPUT_DIR / filename).resolve()
         if not str(fpath).startswith(str(OUTPUT_DIR.resolve())):
             abort(403)
         if not fpath.exists():
             abort(404)
         
-        response = send_from_directory(str(OUTPUT_DIR), safe, as_attachment=False)
+        response = send_from_directory(str(fpath.parent), safe, as_attachment=False)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         return response
@@ -282,7 +300,15 @@ def run_server(host='0.0.0.0', port=5000, debug=False):
     print(f"  Upload dir    : {UPLOAD_DIR}")
     print(f"  Output dir    : {OUTPUT_DIR}")
     print(f"{'='*60}\n")
-    app.run(host=host, port=port, debug=debug, threaded=True)
+    
+    try:
+        app.run(host=host, port=port, debug=debug, threaded=True)
+    finally:
+        # Save history on shutdown
+        from rate_limiter import JobQueue
+        queue = JobQueue()
+        queue.force_save_history()
+        print("\nServer shutdown - job history saved.")
 
 
 if __name__ == '__main__':
