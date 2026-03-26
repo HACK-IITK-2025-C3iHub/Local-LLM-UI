@@ -680,6 +680,13 @@
             .card { padding: 1.5rem; border-radius: var(--radius-lg); }
             .queue-position .pos { font-size: 2.5rem; }
         }
+        @media (max-width: 1024px) {
+            .bg-mesh { animation: none; }
+            .card, .file-card, .pdf-modal, .status-badge, .log-panel {
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -877,10 +884,9 @@
             const canvas = document.getElementById('particleCanvas');
             const ctx = canvas.getContext('2d');
             let particles = [];
-            let mouse = { x: -1000, y: -1000 };
-            const PARTICLE_COUNT = 50;
-            const CONNECTION_DIST = 130;
-            const MOUSE_DIST = 160;
+            const PARTICLE_COUNT = 45;
+            const CONNECTION_DIST = 140;
+            const CONN_SQ = CONNECTION_DIST * CONNECTION_DIST;
 
             function resize() {
                 canvas.width = window.innerWidth;
@@ -888,35 +894,21 @@
             }
             resize();
             window.addEventListener('resize', resize);
-            document.addEventListener('mousemove', e => {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
-            });
 
             class Particle {
                 constructor() {
                     this.x = Math.random() * canvas.width;
                     this.y = Math.random() * canvas.height;
-                    this.vx = (Math.random() - .5) * .35;
-                    this.vy = (Math.random() - .5) * .35;
-                    this.r = Math.random() * 1.6 + .5;
-                    this.alpha = Math.random() * .45 + .15;
+                    this.vx = (Math.random() - .5) * .4;
+                    this.vy = (Math.random() - .5) * .4;
+                    this.r = Math.random() * 1.5 + .5;
+                    this.alpha = Math.random() * .4 + .1;
                 }
                 update() {
                     this.x += this.vx;
                     this.y += this.vy;
                     if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
                     if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-                    const dx = this.x - mouse.x;
-                    const dy = this.y - mouse.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < MOUSE_DIST) {
-                        const force = (MOUSE_DIST - dist) / MOUSE_DIST * .012;
-                        this.vx += dx * force;
-                        this.vy += dy * force;
-                    }
-                    this.vx *= .998;
-                    this.vy *= .998;
                 }
                 draw() {
                     ctx.beginPath();
@@ -930,18 +922,19 @@
             function animate() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 for (const p of particles) { p.update(); p.draw(); }
+
                 for (let i = 0; i < particles.length; i++) {
                     for (let j = i + 1; j < particles.length; j++) {
                         const dx = particles[i].x - particles[j].x;
                         const dy = particles[i].y - particles[j].y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < CONNECTION_DIST) {
-                            const alpha = (1 - dist / CONNECTION_DIST) * .1;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < CONN_SQ) {
+                            const alpha = (1 - Math.sqrt(distSq) / CONNECTION_DIST) * .12;
                             ctx.beginPath();
                             ctx.moveTo(particles[i].x, particles[i].y);
                             ctx.lineTo(particles[j].x, particles[j].y);
                             ctx.strokeStyle = `rgba(99,102,241,${alpha})`;
-                            ctx.lineWidth = .5;
+                            ctx.lineWidth = .6;
                             ctx.stroke();
                         }
                     }

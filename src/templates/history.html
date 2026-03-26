@@ -43,7 +43,11 @@
             min-height: 100vh; line-height: 1.65; overflow-x: hidden;
         }
 
-        #particleCanvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        /* ===== PARTICLE CANVAS ===== */
+        #particleCanvas {
+            position: fixed; inset: 0; z-index: 0;
+            pointer-events: none;
+        }
 
         .bg-mesh {
             position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -176,6 +180,13 @@
             .container { padding: 1.5rem 1rem 3rem; }
             h1 { font-size: 1.5rem; }
         }
+        @media (max-width: 1024px) {
+            .bg-mesh { animation: none; }
+            .job-card, .cta-bar {
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -223,21 +234,60 @@
             const canvas = document.getElementById('particleCanvas');
             const ctx = canvas.getContext('2d');
             let particles = [];
-            const N = 45, CONN = 130;
-            function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
-            resize(); window.addEventListener('resize', resize);
-            class P {
-                constructor() { this.x = Math.random()*canvas.width; this.y = Math.random()*canvas.height; this.vx = (Math.random()-.5)*.35; this.vy = (Math.random()-.5)*.35; this.r = Math.random()*1.6+.5; this.a = Math.random()*.45+.15; }
-                update() { this.x+=this.vx; this.y+=this.vy; if(this.x<0||this.x>canvas.width)this.vx*=-1; if(this.y<0||this.y>canvas.height)this.vy*=-1; }
-                draw() { ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fillStyle=`rgba(99,102,241,${this.a})`; ctx.fill(); }
+            const PARTICLE_COUNT = 45;
+            const CONNECTION_DIST = 140;
+            const CONN_SQ = CONNECTION_DIST * CONNECTION_DIST;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
             }
-            for(let i=0;i<N;i++) particles.push(new P());
+            resize();
+            window.addEventListener('resize', resize);
+
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.vx = (Math.random() - .5) * .4;
+                    this.vy = (Math.random() - .5) * .4;
+                    this.r = Math.random() * 1.5 + .5;
+                    this.alpha = Math.random() * .4 + .1;
+                }
+                update() {
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(99,102,241,${this.alpha})`;
+                    ctx.fill();
+                }
+            }
+            for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
+
             function animate() {
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                particles.forEach(p=>{p.update();p.draw();});
-                for(let i=0;i<particles.length;i++) for(let j=i+1;j<particles.length;j++){
-                    const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,d=Math.sqrt(dx*dx+dy*dy);
-                    if(d<CONN){ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);ctx.lineTo(particles[j].x,particles[j].y);ctx.strokeStyle=`rgba(99,102,241,${(1-d/CONN)*.1})`;ctx.lineWidth=.5;ctx.stroke();}
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                for (const p of particles) { p.update(); p.draw(); }
+
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < CONN_SQ) {
+                            const alpha = (1 - Math.sqrt(distSq) / CONNECTION_DIST) * .12;
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(99,102,241,${alpha})`;
+                            ctx.lineWidth = .6;
+                            ctx.stroke();
+                        }
+                    }
                 }
                 requestAnimationFrame(animate);
             }

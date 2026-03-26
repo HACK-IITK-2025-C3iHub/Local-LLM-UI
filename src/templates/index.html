@@ -64,6 +64,8 @@
             pointer-events: none;
         }
 
+
+
         /* ===== AMBIENT GLOW MESH ===== */
         .bg-mesh {
             position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -610,7 +612,7 @@
         footer a { color: var(--accent-light); text-decoration: none; }
         footer a:hover { text-decoration: underline; }
 
-        /* ===== RESPONSIVE ===== */
+        /* ===== RESPONSIVE & MOBILE PERF ===== */
         @media (max-width: 600px) {
             .container { padding: 1.5rem 1rem 3.5rem; }
             header h1 { font-size: 1.8rem; }
@@ -619,6 +621,14 @@
             .hero-stats { gap: .5rem; }
             .hero-stat { padding: .4rem .7rem; }
             .hero-stat-val { font-size: 1.4rem; }
+        }
+        @media (max-width: 1024px) {
+            .bg-mesh { animation: none; }
+            .card, .queue-pill, .feature-card, .drop-zone, .report-chip, .cta-bar {
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+            .logo-badge::before { animation: none; }
         }
     </style>
 </head>
@@ -830,16 +840,15 @@
 
     <script>
         /* ============================
-         *  PARTICLE CANVAS
+         *  LIGHTWEIGHT PARTICLES (no collisions)
          * ============================ */
         (() => {
             const canvas = document.getElementById('particleCanvas');
             const ctx = canvas.getContext('2d');
             let particles = [];
-            let mouse = { x: -1000, y: -1000 };
-            const PARTICLE_COUNT = 65;
+            const PARTICLE_COUNT = 250;
             const CONNECTION_DIST = 140;
-            const MOUSE_DIST = 180;
+            const CONN_SQ = CONNECTION_DIST * CONNECTION_DIST;
 
             function resize() {
                 canvas.width = window.innerWidth;
@@ -848,36 +857,20 @@
             resize();
             window.addEventListener('resize', resize);
 
-            document.addEventListener('mousemove', e => {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
-            });
-
             class Particle {
                 constructor() {
                     this.x = Math.random() * canvas.width;
                     this.y = Math.random() * canvas.height;
                     this.vx = (Math.random() - .5) * .4;
                     this.vy = (Math.random() - .5) * .4;
-                    this.r = Math.random() * 1.8 + .6;
-                    this.alpha = Math.random() * .5 + .2;
+                    this.r = Math.random() * 1.5 + .5;
+                    this.alpha = Math.random() * .4 + .1;
                 }
                 update() {
                     this.x += this.vx;
                     this.y += this.vy;
                     if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
                     if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
-
-                    const dx = this.x - mouse.x;
-                    const dy = this.y - mouse.y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < MOUSE_DIST) {
-                        const force = (MOUSE_DIST - dist) / MOUSE_DIST * .015;
-                        this.vx += dx * force;
-                        this.vy += dy * force;
-                    }
-                    this.vx *= .998;
-                    this.vy *= .998;
                 }
                 draw() {
                     ctx.beginPath();
@@ -886,7 +879,6 @@
                     ctx.fill();
                 }
             }
-
             for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
 
             function animate() {
@@ -897,9 +889,9 @@
                     for (let j = i + 1; j < particles.length; j++) {
                         const dx = particles[i].x - particles[j].x;
                         const dy = particles[i].y - particles[j].y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < CONNECTION_DIST) {
-                            const alpha = (1 - dist / CONNECTION_DIST) * .12;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < CONN_SQ) {
+                            const alpha = (1 - Math.sqrt(distSq) / CONNECTION_DIST) * .12;
                             ctx.beginPath();
                             ctx.moveTo(particles[i].x, particles[i].y);
                             ctx.lineTo(particles[j].x, particles[j].y);
