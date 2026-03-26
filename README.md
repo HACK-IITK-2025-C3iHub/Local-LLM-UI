@@ -22,37 +22,52 @@ The system identifies policy weaknesses, generates revised policies addressing t
 
 ---
 
+## What's New (March 2026)
+
+- Added live analysis log streaming on the status page so users can watch each pipeline step in real time.
+- Added global analysis history page (`/history`) to view jobs from all LAN devices in one place.
+- Added JSON status API (`/api/status/<job_id>`) for smooth in-page updates without full-page refresh.
+- Improved queue internals with reusable output file collection and richer job metadata.
+- Improved input hardening by sanitizing zero-width/invisible Unicode characters from extracted document text.
+- Removed committed upload samples from repository history and retained `uploads/.gitkeep` workflow.
+
+---
+
 ## Table of Contents
 
-| Section | Description |
-|---------|-------------|
-| [Features](#features) | Core capabilities |
-| [Tech Stack](#tech-stack--prerequisites) | Technologies and requirements |
-| [Architecture](#architecture-diagram) | Visual system overview |
-| [Project Structure](#project-structure) | File organization |
-| [Quick Start](#quick-start-user-instructions) | Get running in 5 minutes |
-| [Developer Guide](#developer-guide) | Contributing code |
-| [Contributor Expectations](#contributor-expectations) | Guidelines for contributors |
-| [Known Issues](#known-issues--limitations) | Current limitations |
-| [PDF Enhancement](BEFORE_AFTER_COMPARISON.md) | Before/After comparison of PDF output |
-| [📄 README.pdf](README.pdf) | PDF version with rendered diagrams |
+| Section                                               | Description                           |
+| ----------------------------------------------------- | ------------------------------------- |
+| [Features](#features)                                 | Core capabilities                     |
+| [What's New](#whats-new-march-2026)                   | Recent updates                        |
+| [Tech Stack](#tech-stack--prerequisites)              | Technologies and requirements         |
+| [Architecture](#architecture-diagram)                 | Visual system overview                |
+| [Project Structure](#project-structure)               | File organization                     |
+| [Quick Start](#quick-start-user-instructions)         | Get running in 5 minutes              |
+| [Developer Guide](#developer-guide)                   | Contributing code                     |
+| [Contributor Expectations](#contributor-expectations) | Guidelines for contributors           |
+| [Known Issues](#known-issues--limitations)            | Current limitations                   |
+| [PDF Enhancement](BEFORE_AFTER_COMPARISON.md)         | Before/After comparison of PDF output |
+| [📄 README.pdf](README.pdf)                           | PDF version with rendered diagrams    |
 
 ---
 
 ## Features
 
-| Feature | Description |
-|---------|-------------|
-| **Gap Analysis** | Identifies policy weaknesses against NIST CSF standards |
-| **Policy Revision** | Auto-generates improved policy versions addressing gaps |
-| **Implementation Roadmap** | Phased improvement plans (0-3, 3-6, 6-12 months) |
-| **Executive Summary** | Leadership-ready overview of findings |
-| **Multi-Format Input** | Supports `.txt`, `.pdf`, and `.docx` policies |
-| **PDF Output** | Professional formatted reports using ReportLab |
-| **Batch Processing** | Analyze multiple policies in one run |
-| **LAN Web Server** | Flask-based web UI — any device on the network can upload & analyze |
-| **Rate Limiting** | Per-IP job limits + serialized LLM queue prevent overload |
-| **100% Offline** | Zero network calls after initial setup |
+| Feature                    | Description                                                                 |
+| -------------------------- | --------------------------------------------------------------------------- |
+| **Gap Analysis**           | Identifies policy weaknesses against NIST CSF standards                     |
+| **Policy Revision**        | Auto-generates improved policy versions addressing gaps                     |
+| **Implementation Roadmap** | Phased improvement plans (0-3, 3-6, 6-12 months)                            |
+| **Executive Summary**      | Leadership-ready overview of findings                                       |
+| **Multi-Format Input**     | Supports `.txt`, `.pdf`, and `.docx` policies                               |
+| **PDF Output**             | Professional formatted reports using ReportLab                              |
+| **Batch Processing**       | Analyze multiple policies in one run                                        |
+| **LAN Web Server**         | Flask-based web UI — any device on the network can upload & analyze         |
+| **Rate Limiting**          | Per-IP job limits + serialized LLM queue prevent overload                   |
+| **Live Status & Logs**     | AJAX status polling and real-time step logs on the status page              |
+| **Global Job History**     | Dedicated `/history` page listing all jobs across LAN clients               |
+| **Input Sanitization**     | Removes invisible/zero-width Unicode artifacts from extracted document text |
+| **100% Offline**           | Zero network calls after initial setup                                      |
 
 ---
 
@@ -83,7 +98,7 @@ flowchart TB
         DOCX["📘 python-docx<br/>Word Parsing"]
         TXT["📝 UTF-8<br/>Text Reading"]
     end
-    
+
     subgraph RefLayer["📚 REFERENCE"]
         NIST["🛡️ NIST CSF<br/>CIS MS-ISAC 2024"]
     end
@@ -100,22 +115,22 @@ flowchart TB
 
 ### System Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **CPU** | Intel i5 / AMD Ryzen 5 | Intel i7 / AMD Ryzen 7 |   
-| **RAM** | 8 GB | 16 GB |
-| **Storage** | 10 GB | 20 GB |
-| **OS** | Windows 10 / Linux / macOS | Windows 11 / Ubuntu 22.04 |
+| Component   | Minimum                    | Recommended               |
+| ----------- | -------------------------- | ------------------------- |
+| **CPU**     | Intel i5 / AMD Ryzen 5     | Intel i7 / AMD Ryzen 7    |
+| **RAM**     | 8 GB                       | 16 GB                     |
+| **Storage** | 10 GB                      | 20 GB                     |
+| **OS**      | Windows 10 / Linux / macOS | Windows 11 / Ubuntu 22.04 |
 
 ### Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `PyPDF2` | >= 3.0 | PDF text extraction |
-| `python-docx` | >= 0.8 | Word document parsing |
-| `reportlab` | >= 4.0 | PDF report generation |
-| `flask` | >= 3.0 | LAN web server & upload UI |
-| `ollama` | (runtime) | Local LLM execution |
+| Package       | Version   | Purpose                    |
+| ------------- | --------- | -------------------------- |
+| `PyPDF2`      | >= 3.0    | PDF text extraction        |
+| `python-docx` | >= 0.8    | Word document parsing      |
+| `reportlab`   | >= 4.0    | PDF report generation      |
+| `flask`       | >= 3.0    | LAN web server & upload UI |
+| `ollama`      | (runtime) | Local LLM execution        |
 
 ---
 
@@ -139,24 +154,24 @@ flowchart TB
         LOAD["Document Loader<br/>utils.read_policy_document()"]
         PIPE["Analysis Pipeline<br/>Sequential Processing"]
         SAVE["Report Generator<br/>TXT + PDF Output"]
-        
+
         CLI --> LOAD --> PIPE --> SAVE
     end
 
     subgraph AnalysisEngine["🔍 ANALYSIS ENGINE"]
         direction TB
-        
+
         subgraph GapModule["Gap Analyzer Module"]
             GA1["load_nist_framework()"]
             GA2["analyze_policy_gaps()"]
             GA3["extract_gaps_structured()"]
         end
-        
+
         subgraph RevisionModule["Policy Reviser Module"]
             PR1["revise_policy()"]
             PR2["generate_revision_summary()"]
         end
-        
+
         subgraph RoadmapModule["Roadmap Generator Module"]
             RG1["generate_improvement_roadmap()"]
             RG2["generate_executive_summary()"]
@@ -168,7 +183,7 @@ flowchart TB
         OLLAMA["Ollama Service<br/>subprocess.run()"]
         MODEL["Gemma3:4b<br/>Fully Offline"]
         CONFIG["Configuration<br/>Timeout: 600s<br/>Max Prompt: 100KB<br/>Max Policy: 50KB"]
-        
+
         OLLAMA --- MODEL
         OLLAMA --- CONFIG
     end
@@ -182,7 +197,7 @@ flowchart TB
             T4["executive_summary.txt"]
             T5["comprehensive_report.txt"]
         end
-        
+
         subgraph PDFReports["PDF Reports - ReportLab"]
             P1["gap_analysis.pdf"]
             P2["revised_policy.pdf"]
@@ -227,7 +242,7 @@ flowchart LR
         B2["📝 Policy Revision<br/>Address all gaps"]
         B3["🗺️ Roadmap<br/>Phased improvements"]
         B4["📋 Executive Summary<br/>Leadership report"]
-        
+
         B1 --> B2 --> B3 --> B4
     end
 
@@ -271,19 +286,19 @@ sequenceDiagram
     activate M
     M->>M: Load policy document
     M->>M: Load NIST framework
-    
+
     M->>GA: analyze_policy_gaps()
     activate GA
     GA->>O: Send comparison prompt
     O-->>GA: Gap analysis results
     deactivate GA
-    
+
     M->>PR: revise_policy()
     activate PR
     PR->>O: Send revision prompt
     O-->>PR: Revised policy
     deactivate PR
-    
+
     M->>RG: generate_improvement_roadmap()
     activate RG
     RG->>O: Send roadmap prompt
@@ -291,12 +306,12 @@ sequenceDiagram
     RG->>O: Send summary prompt
     O-->>RG: Executive summary
     deactivate RG
-    
+
     M->>PDF: generate_all_pdfs()
     activate PDF
     PDF-->>M: 5 PDF reports
     deactivate PDF
-    
+
     M-->>U: Analysis complete!
     deactivate M
 ```
@@ -309,7 +324,7 @@ flowchart TB
     subgraph Framework["NIST&nbsp;CYBERSECURITY&nbsp;FRAMEWORK"]
 
         direction TB
-        
+
         subgraph Core["Core Functions"]
             direction LR
             ID["🔍 IDENTIFY<br/>(ID)"]
@@ -388,15 +403,15 @@ Local-LLM/
 │   ├── rate_limiter.py            # Thread-safe job queue & rate limiter
 │   └── templates/                 # HTML templates
 │       ├── index.html             # Upload page
-│       └── status.html            # Job status & download page
+│       ├── status.html            # Job status, live logs, and downloads
+│       └── history.html           # Global job history page
 │
 ├── data/
 │   ├── reference/                 # NIST CSF framework files
 │   └── test_policies/             # Sample policies for testing
 │
 ├── output/                        # Generated reports (TXT + PDF)
-├── uploads/                       # Temporary uploaded files (auto-cleaned)
-├── docs/                          # Extended documentation
+├── uploads/                       # Uploaded policy files (`.gitkeep` retained)
 ├── models/                        # Model storage (Ollama)
 │
 ├── test_system.py                 # Test suite
@@ -407,16 +422,16 @@ Local-LLM/
 
 ### Module Responsibilities
 
-| Module | Lines | Purpose |
-|--------|-------|---------|
-| `main.py` | 247 | CLI interface, `--serve` mode, pipeline orchestration, report saving |
-| `gap_analyzer.py` | 135 | NIST framework loading, LLM prompt construction, gap extraction |
-| `policy_reviser.py` | 65 | Policy revision prompts, change summary generation |
-| `roadmap_generator.py` | 112 | Phased roadmap creation, executive summary |
-| `pdf_generator.py` | 175 | ReportLab PDF formatting with markdown parsing |
-| `utils.py` | 78 | Multi-format document reading (TXT/PDF/DOCX), file validation |
-| `server.py` | 220 | Flask web server, file upload, download routes, security headers |
-| `rate_limiter.py` | 255 | Thread-safe job queue, per-IP rate limiting, auto-cleanup |
+| Module                 | Lines | Purpose                                                                           |
+| ---------------------- | ----- | --------------------------------------------------------------------------------- |
+| `main.py`              | 253   | CLI interface, `--serve` mode, pipeline orchestration, progress + log callbacks   |
+| `gap_analyzer.py`      | 135   | NIST framework loading, LLM prompt construction, gap extraction                   |
+| `policy_reviser.py`    | 64    | Policy revision prompts, change summary generation                                |
+| `roadmap_generator.py` | 111   | Phased roadmap creation, executive summary                                        |
+| `pdf_generator.py`     | 175   | ReportLab PDF formatting with markdown parsing                                    |
+| `utils.py`             | 87    | Multi-format document reading (TXT/PDF/DOCX), size checks, text sanitization      |
+| `server.py`            | 289   | Flask web server, upload/status/history routes, JSON status API, security headers |
+| `rate_limiter.py`      | 289   | Thread-safe singleton queue, per-IP limits, job logs/history, TTL cleanup         |
 
 ---
 
@@ -440,11 +455,11 @@ pip install -r requirements.txt
 
 ### Step 2: Install Ollama & Model
 
-| Step | Command | Notes |
-|------|---------|-------|
-| Install Ollama | [Download](https://ollama.ai/download) | One-time install |
-| Pull Model | `ollama run gemma3:4b` | Requires internet |
-| Verify | `ollama list` | Should show gemma3 |
+| Step           | Command                                | Notes              |
+| -------------- | -------------------------------------- | ------------------ |
+| Install Ollama | [Download](https://ollama.ai/download) | One-time install   |
+| Pull Model     | `ollama run gemma3:4b`                 | Requires internet  |
+| Verify         | `ollama list`                          | Should show gemma3 |
 
 ### Step 3: Run Analysis
 
@@ -471,33 +486,48 @@ python src/main.py --serve --port 8080
 
 Then open `http://localhost:5000` (or `http://<your-ip>:5000` from another device on the LAN) to upload policies via the browser.
 
-| Server Feature | Detail |
-|----------------|--------|
-| **LAN Access** | Binds to `0.0.0.0` — accessible from any device on the network |
-| **Rate Limiting** | Max 2 queued jobs per IP, 10 total queue capacity |
-| **Progress Tracking** | Real-time stage progress (1/6 → 6/6) with auto-refresh |
-| **Downloads** | All 10 reports (TXT + PDF) available for download on completion |
+| Server Feature        | Detail                                                                       |
+| --------------------- | ---------------------------------------------------------------------------- |
+| **LAN Access**        | Binds to `0.0.0.0` — accessible from any device on the network               |
+| **Rate Limiting**     | Max 2 queued jobs per IP, 10 total queue capacity                            |
+| **Progress Tracking** | Real-time stage progress (1/6 → 6/6) via AJAX polling (no full-page refresh) |
+| **Live Logs**         | Detailed per-stage execution logs stream to the status page while running    |
+| **Global History**    | `/history` shows all submitted jobs across all LAN clients                   |
+| **Downloads**         | All 10 reports (TXT + PDF) available for download on completion              |
+
+### Web Routes
+
+| Route                  | Method | Purpose                                                 |
+| ---------------------- | ------ | ------------------------------------------------------- |
+| `/`                    | GET    | Upload page                                             |
+| `/upload`              | POST   | Upload policy and enqueue analysis                      |
+| `/status/<job_id>`     | GET    | Human-readable status page with progress/logs/downloads |
+| `/api/status/<job_id>` | GET    | JSON status for live UI polling                         |
+| `/history`             | GET    | Global history of jobs across all devices               |
+| `/download/<filename>` | GET    | Download generated reports                              |
+| `/view/<filename>`     | GET    | Inline PDF preview                                      |
+| `/queue`               | GET    | Queue summary JSON                                      |
 
 ### Step 4: View Results
 
 Reports are generated in the `output/` directory:
 
-| Report | Format | Description |
-|--------|--------|-------------|
-| `*_gap_analysis` | TXT + PDF | Identified policy weaknesses |
-| `*_revised_policy` | TXT + PDF | Improved policy version |
-| `*_roadmap` | TXT + PDF | Phased implementation plan |
-| `*_executive_summary` | TXT + PDF | Leadership overview |
-| `*_comprehensive_report` | TXT + PDF | All reports combined |
+| Report                   | Format    | Description                  |
+| ------------------------ | --------- | ---------------------------- |
+| `*_gap_analysis`         | TXT + PDF | Identified policy weaknesses |
+| `*_revised_policy`       | TXT + PDF | Improved policy version      |
+| `*_roadmap`              | TXT + PDF | Phased implementation plan   |
+| `*_executive_summary`    | TXT + PDF | Leadership overview          |
+| `*_comprehensive_report` | TXT + PDF | All reports combined         |
 
 ### Processing Time Estimate
 
-| Stage | Duration |
-|-------|----------|
-| Gap Analysis | 1-2 minutes |
-| Policy Revision | 2-3 minutes |
-| Roadmap Generation | 1-2 minutes |
-| Executive Summary | 30-60 seconds |
+| Stage                | Duration         |
+| -------------------- | ---------------- |
+| Gap Analysis         | 1-2 minutes      |
+| Policy Revision      | 2-3 minutes      |
+| Roadmap Generation   | 1-2 minutes      |
+| Executive Summary    | 30-60 seconds    |
 | **TOTAL PER POLICY** | **~5-8 minutes** |
 
 ---
@@ -577,25 +607,26 @@ flowchart LR
 ### Modifying LLM Prompts
 
 Edit prompt templates in:
+
 - `gap_analyzer.py`: `analyze_policy_gaps()` function
 - `policy_reviser.py`: `revise_policy()` function
 - `roadmap_generator.py`: `generate_improvement_roadmap()` function
 
 ### Security Limits
 
-| Parameter | Value | Location |
-|-----------|-------|----------|
-| `LLM_TIMEOUT` | 600s | `gap_analyzer.py` |
-| `MAX_PROMPT_SIZE` | 100KB | `gap_analyzer.py` |
-| `MAX_POLICY_SIZE` | 50KB | `gap_analyzer.py` |
-| `MAX_FILE_SIZE` | 50MB | `utils.py` |
-| `ALLOWED_MODELS` | Whitelist | `gap_analyzer.py` |
-| `MAX_UPLOAD_SIZE` | 50MB | `server.py` |
-| `MAX_QUEUE_SIZE` | 10 jobs | `rate_limiter.py` |
-| `MAX_JOBS_PER_IP` | 2 jobs | `rate_limiter.py` |
-| `JOB_RESULT_TTL` | 3600s | `rate_limiter.py` |
-| Security Headers | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` | `server.py` |
-| Path Traversal Guard | Resolved path check | `server.py` |
+| Parameter            | Value                                                           | Location          |
+| -------------------- | --------------------------------------------------------------- | ----------------- |
+| `LLM_TIMEOUT`        | 600s                                                            | `gap_analyzer.py` |
+| `MAX_PROMPT_SIZE`    | 100KB                                                           | `gap_analyzer.py` |
+| `MAX_POLICY_SIZE`    | 50KB                                                            | `gap_analyzer.py` |
+| `MAX_FILE_SIZE`      | 50MB                                                            | `utils.py`        |
+| `ALLOWED_MODELS`     | Whitelist                                                       | `gap_analyzer.py` |
+| `MAX_UPLOAD_SIZE`    | 50MB                                                            | `server.py`       |
+| `MAX_QUEUE_SIZE`     | 10 jobs                                                         | `rate_limiter.py` |
+| `MAX_JOBS_PER_IP`    | 2 jobs                                                          | `rate_limiter.py` |
+| `JOB_RESULT_TTL`     | 3600s                                                           | `rate_limiter.py` |
+| Security Headers     | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` | `server.py`       |
+| Path Traversal Guard | Resolved path check                                             | `server.py`       |
 
 ### Running Tests
 
@@ -616,13 +647,13 @@ python test_system.py --test-policy data/test_policies/isms_policy.txt
 
 ### Code Standards
 
-| Aspect | Requirement |
-|--------|-------------|
-| Python Version | 3.8+ compatible |
-| Docstrings | Required for all public functions |
-| Type Hints | Encouraged but not mandatory |
-| Line Length | Max 100 characters |
-| Testing | Add tests for new features |
+| Aspect         | Requirement                       |
+| -------------- | --------------------------------- |
+| Python Version | 3.8+ compatible                   |
+| Docstrings     | Required for all public functions |
+| Type Hints     | Encouraged but not mandatory      |
+| Line Length    | Max 100 characters                |
+| Testing        | Add tests for new features        |
 
 ### Pull Request Process
 
@@ -647,23 +678,23 @@ flowchart TD
 
 ## Known Issues & Limitations
 
-| Issue | Description | Mitigation |
-|-------|-------------|------------|
-| **Model Accuracy** | LLM outputs may contain inaccuracies | Human review recommended |
-| **Processing Time** | 5-8 minutes per policy | Use batch mode for efficiency |
-| **RAM Usage** | High memory during analysis | Close other applications |
-| **Complex PDFs** | Layout may not parse perfectly | Use TXT input when possible |
-| **Language** | English only | Manual translation required |
-| **First Run** | Slower due to model loading | Subsequent runs faster |
+| Issue               | Description                          | Mitigation                    |
+| ------------------- | ------------------------------------ | ----------------------------- |
+| **Model Accuracy**  | LLM outputs may contain inaccuracies | Human review recommended      |
+| **Processing Time** | 5-8 minutes per policy               | Use batch mode for efficiency |
+| **RAM Usage**       | High memory during analysis          | Close other applications      |
+| **Complex PDFs**    | Layout may not parse perfectly       | Use TXT input when possible   |
+| **Language**        | English only                         | Manual translation required   |
+| **First Run**       | Slower due to model loading          | Subsequent runs faster        |
 
 ### Troubleshooting
 
-| Error | Solution |
-|-------|----------|
+| Error                       | Solution                                                    |
+| --------------------------- | ----------------------------------------------------------- |
 | `ollama: command not found` | Install Ollama from [ollama.ai](https://ollama.ai/download) |
-| `Model not found` | Run `ollama pull gemma3:4b` |
-| `LLM execution failed` | Verify: `ollama run gemma3:4b` |
-| `File too large` | Split policy or use TXT format |
+| `Model not found`           | Run `ollama pull gemma3:4b`                                 |
+| `LLM execution failed`      | Verify: `ollama run gemma3:4b`                              |
+| `File too large`            | Split policy or use TXT format                              |
 
 ---
 

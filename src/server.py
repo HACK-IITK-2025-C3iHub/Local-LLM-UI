@@ -223,7 +223,15 @@ def create_app():
             abort(403)
         if not fpath.exists():
             abort(404)
-        return send_from_directory(str(OUTPUT_DIR), safe, as_attachment=True)
+        
+        # Determine correct MIME type
+        mime_type = 'application/pdf' if fpath.suffix == '.pdf' else 'text/plain'
+        
+        response = send_from_directory(str(OUTPUT_DIR), safe, as_attachment=True)
+        response.headers['Content-Type'] = mime_type
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Content-Disposition'] = f'attachment; filename="{safe}"'
+        return response
 
     @app.route('/queue')
     def queue_info():
@@ -254,7 +262,11 @@ def create_app():
             abort(403)
         if not fpath.exists():
             abort(404)
-        return send_from_directory(str(OUTPUT_DIR), safe, as_attachment=False)
+        
+        response = send_from_directory(str(OUTPUT_DIR), safe, as_attachment=False)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response
 
     return app
 

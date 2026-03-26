@@ -12,13 +12,13 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --bg-primary:    #06080f;
-            --bg-secondary:  #0c1120;
-            --bg-card:       rgba(15, 23, 42, 0.6);
-            --accent:        #6366f1;
-            --accent-light:  #818cf8;
-            --accent-glow:   rgba(99,102,241,.25);
-            --violet:        #7c3aed;
+            --bg-primary:    #1C1C1E;
+            --bg-secondary:  #2C2C2E;
+            --bg-card:       rgba(58, 58, 60, 0.6);
+            --accent:        #FF6B00;
+            --accent-light:  #FF9240;
+            --accent-glow:   rgba(255, 107, 0, .25);
+            --violet:        #FF9240;
             --green:         #22c55e;
             --amber:         #f59e0b;
             --red:           #ef4444;
@@ -27,12 +27,12 @@
             --text-primary:  #f1f5f9;
             --text-secondary:#94a3b8;
             --text-muted:    #64748b;
-            --border:        rgba(30, 41, 59, 0.8);
-            --border-light:  rgba(51, 65, 85, 0.5);
+            --border:        rgba(58, 58, 60, 0.8);
+            --border-light:  rgba(90, 90, 94, 0.5);
             --radius:        14px;
             --radius-lg:     22px;
             --shadow:        0 4px 24px rgba(0,0,0,.5);
-            --shadow-glow:   0 0 30px rgba(99,102,241,.12);
+            --shadow-glow:   0 0 30px rgba(255, 107, 0, .12);
             --transition:    .3s cubic-bezier(.4,0,.2,1);
             --blur:          16px;
         }
@@ -52,8 +52,8 @@
         .bg-mesh {
             position: fixed; inset: 0; z-index: 0; pointer-events: none;
             background:
-                radial-gradient(ellipse 800px 500px at 15% 15%, rgba(99,102,241,.07), transparent),
-                radial-gradient(ellipse 600px 600px at 85% 80%, rgba(6,182,212,.05), transparent);
+                radial-gradient(ellipse 800px 500px at 15% 15%, rgba(255,107,0,.08), transparent),
+                radial-gradient(ellipse 600px 600px at 85% 80%, rgba(255,146,64,.06), transparent);
             animation: meshFloat 25s ease-in-out infinite alternate;
         }
         @keyframes meshFloat {
@@ -88,7 +88,7 @@
         /* HEADER */
         h1 {
             font-size: 2rem; font-weight: 900; letter-spacing: -.02em;
-            background: linear-gradient(135deg, #fff, var(--accent-light), var(--cyan), #fff);
+            background: linear-gradient(135deg, #fff, #FF9240, #FF6B00, #fff);
             background-size: 300% 100%;
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -124,7 +124,7 @@
         .job-card::before {
             content: '';
             position: absolute; inset: 0; border-radius: var(--radius); padding: 1px;
-            background: linear-gradient(135deg, rgba(99,102,241,.3), transparent);
+            background: linear-gradient(135deg, rgba(255,107,0,.3), transparent);
             -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
             -webkit-mask-composite: xor; mask-composite: exclude;
             pointer-events: none; opacity: 0;
@@ -132,7 +132,7 @@
         }
         .job-card:hover::before { opacity: 1; }
         .job-card:hover {
-            border-color: rgba(99,102,241,.3);
+            border-color: rgba(255,107,0,.3);
             transform: translateY(-2px);
             box-shadow: 0 8px 30px rgba(0,0,0,.3), 0 0 20px var(--accent-glow);
         }
@@ -263,7 +263,7 @@
                 draw() {
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-                    ctx.fillStyle = `rgba(99,102,241,${this.alpha})`;
+                    ctx.fillStyle = `rgba(255,107,0,${this.alpha})`;
                     ctx.fill();
                 }
             }
@@ -283,7 +283,7 @@
                             ctx.beginPath();
                             ctx.moveTo(particles[i].x, particles[i].y);
                             ctx.lineTo(particles[j].x, particles[j].y);
-                            ctx.strokeStyle = `rgba(99,102,241,${alpha})`;
+                            ctx.strokeStyle = `rgba(255,107,0,${alpha})`;
                             ctx.lineWidth = .6;
                             ctx.stroke();
                         }
