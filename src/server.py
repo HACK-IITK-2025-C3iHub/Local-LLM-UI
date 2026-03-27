@@ -118,7 +118,7 @@ def create_app():
     # Lazy import to avoid circular dependency
     from main import analyze_policy as _analyze_policy
 
-    def _wrapped_analyze(policy_path, output_dir, job_id=None, progress_callback=None, log_callback=None):
+    def _wrapped_analyze(policy_path, output_dir, job_id=None, progress_callback=None, log_callback=None, framework=None):
         """Adapter bridging the job queue to the existing analyze_policy()."""
         return _analyze_policy(
             policy_path,
@@ -126,6 +126,7 @@ def create_app():
             job_id=job_id,
             progress_callback=progress_callback,
             log_callback=log_callback,
+            framework=framework,
         )
 
     queue.set_analyze_function(_wrapped_analyze)
@@ -168,6 +169,12 @@ def create_app():
             )
             return redirect(url_for('index'))
 
+        # Get framework selection
+        framework = request.form.get('framework', 'nist')
+        valid_frameworks = {'nist', 'iso27001', 'cis', 'pci'}
+        if framework not in valid_frameworks:
+            framework = 'nist'
+
         # Save uploaded file in a job-specific directory
         job_id = uuid.uuid4().hex[:12]
         job_upload_dir = UPLOAD_DIR / job_id
@@ -199,6 +206,7 @@ def create_app():
                 policy_path=str(upload_path),
                 policy_filename=file.filename,
                 output_dir=str(job_output_dir),
+                framework=framework,
             )
         except ValueError as exc:
             flash(str(exc), 'error')
@@ -212,7 +220,13 @@ def create_app():
         """Job status page."""
         info = queue.get_status(job_id)
         if info is None:
-            abort(404)
+            # Job not found - show friendly error page
+            return render_template(
+                'error.html',
+                error_title='Job Not Found',
+                error_message=f'Job {job_id[:8]} is no longer available. It may have been cleaned up or its output files were deleted.',
+                show_home_link=True
+            ), 404
 
         output_files = []
         if info['status'] == 'done':
@@ -258,7 +272,8 @@ def create_app():
         """JSON endpoint for AJAX polling of job status (no page reload)."""
         info = queue.get_status(job_id)
         if info is None:
-            abort(404)
+            # Return 404 without logging (reduces noise from polling)
+            return jsonify({'error': 'Job not found'}), 404
 
         output_files = []
         if info['status'] == 'done':

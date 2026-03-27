@@ -1,0 +1,86 @@
+CIS CRITICAL SECURITY CONTROLS v8
+=================================
+
+IMPLEMENTATION GROUP 1 (ESSENTIAL CYBER HYGIENE)
+
+1. ESTABLISH AND MAINTAIN DETAILED ENTERPRISE ASSET INVENTORY
+- Document all enterprise assets
+- Use dynamic asset discovery tools
+- Use passive discovery tools
+- Use authenticated vulnerability scanning
+
+2. ESTABLISH AND MAINTAIN SOFTWARE INVENTORY
+- Establish inventory of authorized software
+- Remove unauthorized software
+- Use application allowlisting
+- Deploy endpoint detection and response tools
+
+3. DATA PROTECTION
+- Establish data classification scheme
+- Document data handling requirements
+- Create data inventory
+
+4. SECURE CONFIGURATION MANAGEMENT
+- Establish secure configurations
+- Lock hardcoded credentials
+- Verify secure configurations
+
+5. ACCOUNT MANAGEMENT
+- Establish account management process
+- Identify and authenticate users
+- Implement password policies
+
+6. ACCESS CONTROL MANAGEMENT
+- Establish access control models
+- Implement multi-factor authentication
+- Secure service accounts
+
+7. CONTINUOUS VULNERABILITY MANAGEMENT
+- Establish vulnerability management program
+- Perform automated vulnerability scanning
+- Remediate vulnerabilities
+
+8. AUDIT LOG MANAGEMENT
+- Establish audit logging
+- Collect audit logs
+- Protect audit log data
+
+9. EMAIL WEB BROWSER PROTECTION
+- Deploy spam filtering
+- Deploy web protection
+- Deploy email authentication
+
+10. MALWARE DEFENSES
+- Deploy anti-malware software
+- Deploy centralized anti-malware log collection
+
+11. DATA RECOVERY
+- Establish backup and recovery procedures
+- Test backup and recovery procedures
+
+12. NETWORK INFRASTRUCTURE MANAGEMENT
+- Establish network segmentation
+- Implement network security devices
+
+13. NETWORK MONITORING AND DEFENSE
+- Deploy security monitoring tools
+- Analyze security alerts
+
+14. SECURITY AWARENESS TRAINING
+- Conduct security awareness training
+- Conduct spearphishing simulations
+
+IMPLEMENTATION GROUP 2
+
+15. APPLICATION SOFTWARE SECURITY
+- Establish secure development process
+- Perform static analysis security testing
+
+16. INCIDENT RESPONSE MANAGEMENT
+- Establish incident response capability
+- Document incident response procedures
+
+17. PENETRATION TESTING
+- Conduct regular penetration testing
+- Validate security controls
+

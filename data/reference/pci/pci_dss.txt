@@ -1,0 +1,68 @@
+PCI DSS v4.0 REQUIREMENTS
+=========================
+
+REQUIREMENT 1: INSTALL AND MAINTAIN NETWORK SECURITY CONTROLS
+- Firewall configuration standards
+- Default vendor-supplied passwords disabled
+- Network access control
+
+REQUIREMENT 2: APPLY SECURE CONFIGURATIONS TO ALL SYSTEM COMPONENTS
+- Change vendor defaults
+- Develop configuration standards
+- Secure configuration management
+
+REQUIREMENT 3: PROTECT STORED ACCOUNT DATA
+- Cardholder data storage limitations
+- Data encryption
+- Key management
+- Masked PAN display
+
+REQUIREMENT 4: TRANSMIT CARDHOLDER DATA OVER OPEN, PUBLIC NETWORKS
+- Transmission encryption
+- Wireless network encryption
+
+REQUIREMENT 5: PROTECT ALL SYSTEMS AND NETWORKS FROM MALICIOUS SOFTWARE
+- Anti-malware software
+- Anti-malware updates
+- Perimeter firewall
+
+REQUIREMENT 6: DEVELOP AND MAINTAIN SECURE SYSTEMS AND SOFTWARE
+- Secure coding guidelines
+- Patch management
+- Change management
+- Software security
+
+REQUIREMENT 7: RESTRICT ACCESS TO CARDHOLDER DATA BY BUSINESS NEED TO KNOW
+- Access control systems
+- Access restrictions
+
+REQUIREMENT 8: IDENTIFY AND AUTHENTICATE ACCESS TO SYSTEM COMPONENTS
+- User identification
+- Password requirements
+- Multi-factor authentication
+- Account management
+
+REQUIREMENT 9: RESTRICT PHYSICAL ACCESS TO CARDHOLDER DATA
+- Physical security perimeters
+- Physical access controls
+- Media handling
+
+REQUIREMENT 10: LOG AND MONITOR ALL ACCESS TO SYSTEM COMPONES AND CARDHOLDER DATA
+- Audit logging
+- Log protection
+- Time synchronization
+- Audit trail review
+
+REQUIREMENT 11: TEST SECURITY OF SYSTEMS AND NETWORKS REGULARLY
+- Vulnerability scanning
+- Penetration testing
+- Network intrusion detection
+- File integrity monitoring
+
+REQUIREMENT 12: SUPPORT INFORMATION SECURITY WITH POLICIES AND PROGRAMS
+- Information security policy
+- Risk assessment
+- Security awareness training
+- Personnel screening
+- Incident response plan
+- Vendor management

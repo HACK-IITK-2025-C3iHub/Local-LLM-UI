@@ -16,7 +16,7 @@ from roadmap_generator import generate_improvement_roadmap, generate_executive_s
 from pdf_generator import generate_all_pdfs
 
 
-def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callback=None, log_callback=None):
+def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callback=None, log_callback=None, framework='nist'):
     """
     Main function to analyze policy document and generate comprehensive report.
 
@@ -26,6 +26,7 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
         job_id: Optional job ID for naming output files
         progress_callback: Optional callable(stage_number) for progress tracking
         log_callback: Optional callable(str) for detailed log streaming to the UI
+        framework: Security framework to analyze against (nist, iso27001, cis, pci)
 
     Returns:
         Dictionary containing all analysis results
@@ -50,19 +51,19 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
     policy_name = Path(policy_path).stem
     _log(f"      Policy loaded: {len(policy_content)} characters\n")
 
-    # Load NIST framework
+    # Load framework standards
     _progress(2)
-    _log("[2/6] Loading NIST Cybersecurity Framework standards...")
+    _log(f"[2/6] Loading {framework.upper()} framework standards...")
     # Resolve data/reference relative to project root, not cwd
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    framework_path = os.path.join(project_root, 'data', 'reference')
+    framework_path = os.path.join(project_root, 'data', 'reference', framework)
     nist_framework = load_nist_framework(framework_path)
     _log(f"      Framework loaded: {len(nist_framework)} characters\n")
 
     # Analyze gaps
     _progress(3)
-    _log("[3/6] Analyzing policy gaps (this may take 1-2 minutes)...")
-    gap_analysis = analyze_policy_gaps(policy_content, nist_framework)
+    _log(f"[3/6] Analyzing policy gaps (this may take 1-2 minutes)...")
+    gap_analysis = analyze_policy_gaps(policy_content, nist_framework, framework)
     _log(f"      Gap analysis complete: {len(gap_analysis)} characters\n")
 
     # Revise policy
@@ -105,13 +106,21 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
     _log(f"  \u2713 Executive summary saved")
 
     # Generate comprehensive report
+    framework_names = {
+        'nist': 'NIST Cybersecurity Framework (CIS MS-ISAC 2024)',
+        'iso27001': 'ISO 27001:2022',
+        'cis': 'CIS Controls v8',
+        'pci': 'PCI DSS v4.0'
+    }
+    framework_display = framework_names.get(framework, 'NIST Cybersecurity Framework')
+    
     comprehensive_report = f"""
 {'='*80}
 COMPREHENSIVE POLICY ANALYSIS REPORT
 {'='*80}
 Policy: {policy_name}
 Analysis Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-Framework: NIST Cybersecurity Framework (CIS MS-ISAC 2024)
+Framework: {framework_display}
 {'='*80}
 
 {exec_summary}
@@ -170,7 +179,8 @@ END OF REPORT
         'revised_policy': revised_policy,
         'roadmap': roadmap,
         'executive_summary': exec_summary,
-        'output_base': output_base
+        'output_base': output_base,
+        'framework': framework
     }
 
 

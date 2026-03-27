@@ -1178,7 +1178,20 @@
             let pollInterval = setInterval(async () => {
                 try {
                     const res = await fetch(`/api/status/${JOB_ID}`);
-                    if (!res.ok) return;
+                    if (!res.ok) {
+                        // Job not found (404) - stop polling and show message
+                        if (res.status === 404) {
+                            clearInterval(pollInterval);
+                            const stateCard = document.getElementById('stateCard');
+                            if (stateCard) {
+                                stateCard.innerHTML = `
+                                    <h2>Job Not Found</h2>
+                                    <div class="error-box">This job is no longer available. It may have been cleaned up or its output files were deleted.</div>
+                                    <div class="actions"><a href="/" class="btn btn-primary">🏠 Go to Home</a></div>`;
+                            }
+                        }
+                        return;
+                    }
                     const data = await res.json();
                     applyStatus(data);
                     updateLogs(data.logs || []);

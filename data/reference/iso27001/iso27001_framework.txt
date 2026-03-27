@@ -1,0 +1,99 @@
+ISO/IEC 27001:2022 INFORMATION SECURITY FRAMEWORK
+================================================
+
+1. INFORMATION SECURITY POLICIES
+- Organization must define information security policy
+- Policy must be approved by management
+- Policy must be published and communicated to employees
+- Policy must be reviewed at planned intervals
+
+2. ORGANIZATION OF INFORMATION SECURITY
+- Information security roles and responsibilities defined
+- Segregation of duties to prevent conflicts of interest
+- Management framework for control of information security
+- Contact with relevant authorities maintained
+- Contact with special interest groups maintained
+
+3. HUMAN RESOURCE SECURITY
+- Background verification checks on candidates for employment
+- Management responsibilities for information security
+- Information security awareness training provided
+- Disciplinary process for security violations
+- Termination or change of employment responsibilities
+
+4. ASSET MANAGEMENT
+- Inventory of information assets maintained
+- Ownership assigned to assets
+- Acceptable use of information assets
+- Classification of information
+- Labelling of information
+- Handling of assets
+
+5. ACCESS CONTROL
+- Access control policy established
+- Access control review process
+- Registration and deregistration of users
+- User access provisioning
+- Management of privileged access
+- Management of secret authentication information
+- Review of user access rights
+- Removal or adjustment of user access
+
+6. CRYPTOGRAPHY
+- Cryptographic controls policy
+- Key management for cryptographic keys
+
+7. PHYSICAL AND ENVIRONMENTAL SECURITY
+- Secure areas defined
+- Physical security perimeters
+- Entry controls for secure areas
+- Security of equipment and assets
+- Secure disposal or reuse of equipment
+- Clear desk and clear screen policy
+- Equipment maintenance
+- Removal of assets
+
+8. OPERATIONS SECURITY
+- Operating procedures and responsibilities documented
+- Change management process
+- Capacity management
+- Separation of development, testing, and production environments
+- Protection from malware
+- Backup copies of information maintained
+- Event logging
+- Protection of log information
+- Clock synchronization
+
+9. COMMUNICATIONS SECURITY
+- Network security management
+- Security of network services
+- Segregation of networks
+
+10. SYSTEM ACQUISITION, DEVELOPMENT AND MAINTENANCE
+- Security requirements for new systems or enhancements
+- Secure development policy
+- Secure development lifecycle
+- Secure coding guidelines
+
+11. SUPPLIER RELATIONSHIPS
+- Supplier agreements include information security requirements
+- Supplier service delivery management
+- Monitoring and review of supplier services
+
+12. INFORMATION SECURITY INCIDENT MANAGEMENT
+- Management responsibilities for incidents
+- Reporting information security events
+- Response to information security incidents
+- Learning from information security incidents
+
+13. BUSINESS CONTINUITY MANAGEMENT
+- Business continuity requirements
+- Business continuity planning
+- Business continuity testing
+
+14. COMPLIANCE
+- Identification of applicable legislation
+- Intellectual property rights
+- Protection of records
+- Compliance with security policies
+- Cryptographic controls compliance

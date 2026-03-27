@@ -31,15 +31,16 @@ class Job:
         'id', 'ip', 'policy_path', 'policy_filename', 'output_dir',
         'status', 'progress_stage', 'progress_total', 'result',
         'error_msg', 'submitted_at', 'started_at', 'completed_at',
-        'logs',
+        'logs', 'framework',
     )
 
-    def __init__(self, job_id, ip, policy_path, policy_filename, output_dir):
+    def __init__(self, job_id, ip, policy_path, policy_filename, output_dir, framework='nist'):
         self.id = job_id
         self.ip = ip
         self.policy_path = policy_path
         self.policy_filename = policy_filename
         self.output_dir = output_dir
+        self.framework = framework
         self.status = 'queued'          # queued | running | done | error
         self.progress_stage = 0
         self.progress_total = 6
@@ -59,6 +60,7 @@ class Job:
         job.policy_path = data.get('policy_path', '')
         job.policy_filename = data['policy_filename']
         job.output_dir = data.get('output_dir', '')
+        job.framework = data.get('framework', 'nist')
         job.status = data['status']
         job.progress_stage = data.get('progress_stage', 0)
         job.progress_total = data.get('progress_total', 6)
@@ -83,6 +85,7 @@ class Job:
             'policy_path': self.policy_path,
             'policy_filename': self.policy_filename,
             'output_dir': self.output_dir,
+            'framework': self.framework,
             'status': self.status,
             'progress_stage': self.progress_stage,
             'progress_total': self.progress_total,
@@ -150,7 +153,7 @@ class JobQueue:
         """
         self._analyze_fn = fn
 
-    def submit(self, job_id=None, ip=None, policy_path=None, policy_filename=None, output_dir='output'):
+    def submit(self, job_id=None, ip=None, policy_path=None, policy_filename=None, output_dir='output', framework='nist'):
         """Submit a new analysis job.
 
         Args:
@@ -159,6 +162,7 @@ class JobQueue:
             policy_path: Path to the policy file
             policy_filename: Original filename of the policy
             output_dir: Directory for output files
+            framework: Security framework to analyze against (nist, iso27001, cis, pci)
 
         Returns:
             (job_id, queue_position) on success.
@@ -188,7 +192,7 @@ class JobQueue:
 
             if job_id is None:
                 job_id = uuid.uuid4().hex[:12]
-            job = Job(job_id, ip, policy_path, policy_filename, output_dir)
+            job = Job(job_id, ip, policy_path, policy_filename, output_dir, framework)
             self._jobs[job_id] = job
             self._queue.append(job_id)
             position = len(self._queue)
@@ -365,6 +369,7 @@ class JobQueue:
                 job_id=job.id,
                 progress_callback=progress_callback,
                 log_callback=log_callback,
+                framework=job.framework,
             )
             job.result = result
             job.status = 'done'
