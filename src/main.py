@@ -69,7 +69,7 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
 
     # Analyze vulnerabilities
     _progress(4)
-    _log("[4/7] Analyzing security vulnerabilities (this may take 1-2 minutes)...")
+    _log("[4/7] Analyzing security vulnerabilities...")
     from vulnerability_analyzer import analyze_policy_vulnerabilities
     vulnerability_analysis = analyze_policy_vulnerabilities(policy_content, policy_name)
     _log(f"      Vulnerability analysis complete: {len(vulnerability_analysis)} characters\n")

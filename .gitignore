@@ -40,3 +40,6 @@ uploads/*
 # OS
 .DS_Store
 Thumbs.db
+
+#Job history data
+data/job_history.json
