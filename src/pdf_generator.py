@@ -138,9 +138,10 @@ def generate_all_pdfs(results, output_base):
             vuln_pdf = os.path.join(vuln_dir, f"{job_id}_vulnerability_analysis.pdf")
             
             create_pdf_report(results['vulnerability_analysis'], vuln_pdf, "Vulnerability Analysis Report")
+            print(f"  ✓ Vulnerability PDF saved (admin only): vulnerabilities/{job_id}_vulnerability_analysis.pdf")
             # Don't add to pdf_files list - keep it hidden from user
         except Exception as e:
-            print(f"[ERROR] Failed to save vulnerability PDF: {e}")
+            print(f"  ⚠ Vulnerability PDF generation failed: {e}")
     
     # Revised Policy PDF
     policy_pdf = f"{output_base}_revised_policy.pdf"
