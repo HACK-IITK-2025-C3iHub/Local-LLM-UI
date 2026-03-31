@@ -24,16 +24,19 @@ The system identifies policy weaknesses, generates revised policies addressing t
 
 ## What's New (March 2026)
 
+- **Improved File Organization**: DOCX files now display in left column, PDF files in right column for better visual organization
+- **ZIP Download**: All reports can now be downloaded as a single ZIP archive for convenience
+- **Hidden Vulnerability Reports**: Vulnerability analysis PDFs are automatically saved to `vulnerabilities/` folder (hidden from users)
+- **Auto-Directory Creation**: System automatically creates required directories (`data/`, `vulnerabilities/`) on first run
 - **Persistent Job History**: Analysis history now persists across server restarts via JSON storage (`data/job_history.json`)
 - **Smart History Filtering**: History automatically hides jobs whose output files have been deleted
 - **Fixed PDF Downloads**: Resolved path handling issues for PDF downloads and inline viewing on Windows
 - **Fixed PDF Modal Viewer**: View button now correctly opens PDFs in the inline modal viewer
-- Added live analysis log streaming on the status page so users can watch each pipeline step in real time.
-- Added global analysis history page (`/history`) to view jobs from all LAN devices in one place.
-- Added JSON status API (`/api/status/<job_id>`) for smooth in-page updates without full-page refresh.
-- Improved queue internals with reusable output file collection and richer job metadata.
-- Improved input hardening by sanitizing zero-width/invisible Unicode characters from extracted document text.
-- Removed committed upload samples from repository history and retained `uploads/.gitkeep` workflow.
+- **Live Analysis Logs**: Real-time log streaming on the status page so users can watch each pipeline step
+- **Global Analysis History**: Dedicated `/history` page to view jobs from all LAN devices in one place
+- **JSON Status API**: Added `/api/status/<job_id>` for smooth in-page updates without full-page refresh
+- **Input Sanitization**: Removes invisible/zero-width Unicode artifacts from extracted document text
+- **Removed Vulnerability DOCX**: Vulnerability analysis no longer generates DOCX files (PDF only, hidden)
 
 ---
 
@@ -60,11 +63,13 @@ The system identifies policy weaknesses, generates revised policies addressing t
 | Feature                    | Description                                                                 |
 | -------------------------- | --------------------------------------------------------------------------- |
 | **Gap Analysis**           | Identifies policy weaknesses against NIST CSF standards                     |
+| **Vulnerability Analysis** | Security vulnerability assessment (saved to hidden `vulnerabilities/` folder) |
 | **Policy Revision**        | Auto-generates improved policy versions addressing gaps                     |
 | **Implementation Roadmap** | Phased improvement plans (0-3, 3-6, 6-12 months)                            |
 | **Executive Summary**      | Leadership-ready overview of findings                                       |
 | **Multi-Format Input**     | Supports `.txt`, `.pdf`, and `.docx` policies                               |
-| **PDF Output**             | Professional formatted reports using ReportLab                              |
+| **Multi-Format Output**    | Professional DOCX and PDF reports using ReportLab                           |
+| **ZIP Archive**            | Download all reports as a single ZIP file                                   |
 | **Batch Processing**       | Analyze multiple policies in one run                                        |
 | **LAN Web Server**         | Flask-based web UI — any device on the network can upload & analyze         |
 | **Rate Limiting**          | Per-IP job limits + serialized LLM queue prevent overload                   |
@@ -400,9 +405,11 @@ Local-LLM/
 ├── src/                           # Source code
 │   ├── main.py                    # CLI entry point & orchestrator
 │   ├── gap_analyzer.py            # NIST comparison & LLM calls
+│   ├── vulnerability_analyzer.py  # Security vulnerability analysis
 │   ├── policy_reviser.py          # Policy improvement generation
 │   ├── roadmap_generator.py       # Implementation roadmap creation
 │   ├── pdf_generator.py           # PDF report formatting (ReportLab)
+│   ├── docx_generator.py          # DOCX report formatting (python-docx)
 │   ├── utils.py                   # File I/O utilities
 │   ├── server.py                  # Flask web server (LAN hosting)
 │   ├── rate_limiter.py            # Thread-safe job queue & rate limiter
@@ -416,8 +423,9 @@ Local-LLM/
 │   ├── test_policies/             # Sample policies for testing
 │   └── job_history.json           # Persistent job history (auto-generated)
 │
-├── output/                        # Generated reports (TXT + PDF)
+├── output/                        # Generated reports (DOCX + PDF + ZIP)
 ├── uploads/                       # Uploaded policy files (`.gitkeep` retained)
+├── vulnerabilities/               # Hidden vulnerability analysis PDFs (admin only)
 ├── models/                        # Model storage (Ollama)
 │
 ├── test_system.py                 # Test suite
@@ -428,16 +436,18 @@ Local-LLM/
 
 ### Module Responsibilities
 
-| Module                 | Lines | Purpose                                                                           |
-| ---------------------- | ----- | --------------------------------------------------------------------------------- |
-| `main.py`              | 253   | CLI interface, `--serve` mode, pipeline orchestration, progress + log callbacks   |
-| `gap_analyzer.py`      | 135   | NIST framework loading, LLM prompt construction, gap extraction                   |
-| `policy_reviser.py`    | 64    | Policy revision prompts, change summary generation                                |
-| `roadmap_generator.py` | 111   | Phased roadmap creation, executive summary                                        |
-| `pdf_generator.py`     | 175   | ReportLab PDF formatting with markdown parsing                                    |
-| `utils.py`             | 87    | Multi-format document reading (TXT/PDF/DOCX), size checks, text sanitization      |
-| `server.py`            | 295   | Flask web server, upload/status/history routes, JSON status API, security headers |
-| `rate_limiter.py`      | 380   | Thread-safe queue, persistent history, file validation, per-IP limits, TTL cleanup |
+| Module                      | Lines | Purpose                                                                           |
+| --------------------------- | ----- | --------------------------------------------------------------------------------- |
+| `main.py`                   | 253   | CLI interface, `--serve` mode, pipeline orchestration, progress + log callbacks   |
+| `gap_analyzer.py`           | 135   | NIST framework loading, LLM prompt construction, gap extraction                   |
+| `vulnerability_analyzer.py` | 95    | Security vulnerability analysis using LLM                                         |
+| `policy_reviser.py`         | 64    | Policy revision prompts, change summary generation                                |
+| `roadmap_generator.py`      | 111   | Phased roadmap creation, executive summary                                        |
+| `pdf_generator.py`          | 185   | ReportLab PDF formatting with markdown parsing, hidden vuln PDF storage           |
+| `docx_generator.py`         | 165   | python-docx DOCX formatting with style support                                    |
+| `utils.py`                  | 87    | Multi-format document reading (TXT/PDF/DOCX), size checks, text sanitization      |
+| `server.py`                 | 310   | Flask web server, upload/status/history routes, JSON status API, security headers |
+| `rate_limiter.py`           | 380   | Thread-safe queue, persistent history, file validation, per-IP limits, TTL cleanup |
 
 ---
 
@@ -520,23 +530,28 @@ Then open `http://localhost:5000` (or `http://<your-ip>:5000` from another devic
 
 Reports are generated in the `output/` directory:
 
-| Report                   | Format    | Description                  |
-| ------------------------ | --------- | ---------------------------- |
-| `*_gap_analysis`         | TXT + PDF | Identified policy weaknesses |
-| `*_revised_policy`       | TXT + PDF | Improved policy version      |
-| `*_roadmap`              | TXT + PDF | Phased implementation plan   |
-| `*_executive_summary`    | TXT + PDF | Leadership overview          |
-| `*_comprehensive_report` | TXT + PDF | All reports combined         |
+| Report                   | Format         | Description                  | Visibility |
+| ------------------------ | -------------- | ---------------------------- | ---------- |
+| `*_gap_analysis`         | DOCX + PDF     | Identified policy weaknesses | User       |
+| `*_vulnerability_analysis` | PDF only     | Security vulnerabilities     | Hidden*    |
+| `*_revised_policy`       | DOCX + PDF     | Improved policy version      | User       |
+| `*_roadmap`              | DOCX + PDF     | Phased implementation plan   | User       |
+| `*_executive_summary`    | DOCX + PDF     | Leadership overview          | User       |
+| `*_comprehensive_report` | DOCX + PDF     | All reports combined         | User       |
+| `*_all_reports.zip`      | ZIP Archive    | All user reports in one file | User       |
+
+*Vulnerability analysis PDFs are saved to `vulnerabilities/` folder for admin/internal review only.
 
 ### Processing Time Estimate
 
-| Stage                | Duration         |
-| -------------------- | ---------------- |
-| Gap Analysis         | 1-2 minutes      |
-| Policy Revision      | 2-3 minutes      |
-| Roadmap Generation   | 1-2 minutes      |
-| Executive Summary    | 30-60 seconds    |
-| **TOTAL PER POLICY** | **~5-8 minutes** |
+| Stage                     | Duration         |
+| ------------------------- | ---------------- |
+| Gap Analysis              | 1-2 minutes      |
+| Vulnerability Analysis    | 1-2 minutes      |
+| Policy Revision           | 2-3 minutes      |
+| Roadmap Generation        | 1-2 minutes      |
+| Executive Summary         | 30-60 seconds    |
+| **TOTAL PER POLICY**      | **~6-10 minutes** |
 
 ---
 

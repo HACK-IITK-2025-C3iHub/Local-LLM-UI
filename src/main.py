@@ -14,6 +14,7 @@ from gap_analyzer import load_nist_framework, analyze_policy_gaps, extract_gaps_
 from policy_reviser import revise_policy, generate_revision_summary
 from roadmap_generator import generate_improvement_roadmap, generate_executive_summary
 from pdf_generator import generate_all_pdfs
+from docx_generator import generate_all_docx
 
 
 def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callback=None, log_callback=None, framework='nist'):
@@ -46,14 +47,14 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
 
     # Load policy document
     _progress(1)
-    _log(f"[1/6] Loading policy document: {policy_path}")
+    _log(f"[1/7] Loading policy document: {policy_path}")
     policy_content = read_policy_document(policy_path)
     policy_name = Path(policy_path).stem
     _log(f"      Policy loaded: {len(policy_content)} characters\n")
 
     # Load framework standards
     _progress(2)
-    _log(f"[2/6] Loading {framework.upper()} framework standards...")
+    _log(f"[2/7] Loading {framework.upper()} framework standards...")
     # Resolve data/reference relative to project root, not cwd
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     framework_path = os.path.join(project_root, 'data', 'reference', framework)
@@ -62,25 +63,32 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
 
     # Analyze gaps
     _progress(3)
-    _log(f"[3/6] Analyzing policy gaps (this may take 1-2 minutes)...")
+    _log(f"[3/7] Analyzing policy gaps (this may take 1-2 minutes)...")
     gap_analysis = analyze_policy_gaps(policy_content, nist_framework, framework)
     _log(f"      Gap analysis complete: {len(gap_analysis)} characters\n")
 
-    # Revise policy
+    # Analyze vulnerabilities
     _progress(4)
-    _log("[4/6] Generating revised policy (this may take 2-3 minutes)...")
+    _log("[4/7] Analyzing security vulnerabilities (this may take 1-2 minutes)...")
+    from vulnerability_analyzer import analyze_policy_vulnerabilities
+    vulnerability_analysis = analyze_policy_vulnerabilities(policy_content, policy_name)
+    _log(f"      Vulnerability analysis complete: {len(vulnerability_analysis)} characters\n")
+
+    # Revise policy
+    _progress(5)
+    _log("[5/7] Generating revised policy (this may take 2-3 minutes)...")
     revised_policy = revise_policy(policy_content, gap_analysis, nist_framework)
     _log(f"      Revised policy generated: {len(revised_policy)} characters\n")
 
     # Generate roadmap
-    _progress(5)
-    _log("[5/6] Creating improvement roadmap (this may take 1-2 minutes)...")
+    _progress(6)
+    _log("[6/7] Creating improvement roadmap (this may take 1-2 minutes)...")
     roadmap = generate_improvement_roadmap(gap_analysis, policy_name)
     _log(f"      Roadmap generated: {len(roadmap)} characters\n")
 
     # Generate executive summary
-    _progress(6)
-    _log("[6/6] Generating executive summary...")
+    _progress(7)
+    _log("[7/7] Generating executive summary...")
     exec_summary = generate_executive_summary(gap_analysis, roadmap)
     _log(f"      Executive summary complete\n")
 
@@ -93,17 +101,25 @@ def analyze_policy(policy_path, output_dir='output', job_id=None, progress_callb
         output_base = os.path.join(output_dir, f"{policy_name}_{timestamp}")
 
     _log(f"Saving reports to: {output_dir}/")
-    save_output(gap_analysis, f"{output_base}_gap_analysis.txt")
-    _log(f"  \u2713 Gap analysis saved")
-
-    save_output(revised_policy, f"{output_base}_revised_policy.txt")
-    _log(f"  \u2713 Revised policy saved")
-
-    save_output(roadmap, f"{output_base}_roadmap.txt")
-    _log(f"  \u2713 Improvement roadmap saved")
-
-    save_output(exec_summary, f"{output_base}_executive_summary.txt")
-    _log(f"  \u2713 Executive summary saved")
+    
+    # Generate DOCX versions
+    _log("Generating DOCX reports with formatted output...")
+    results_dict = {
+        'policy_name': policy_name,
+        'gap_analysis': gap_analysis,
+        'vulnerability_analysis': vulnerability_analysis,
+        'revised_policy': revised_policy,
+        'roadmap': roadmap,
+        'executive_summary': exec_summary
+    }
+    
+    docx_files = []
+    try:
+        docx_files = generate_all_docx(results_dict, output_base)
+        for docx_file in docx_files:
+            _log(f"  ✓ DOCX saved: {Path(docx_file).name}")
+    except Exception as e:
+        _log(f"  ⚠ DOCX generation failed: {e}")
 
     # Generate comprehensive report
     framework_names = {
@@ -148,26 +164,29 @@ END OF REPORT
 {'='*80}
 """
 
-    save_output(comprehensive_report, f"{output_base}_comprehensive_report.txt")
-    _log(f"  \u2713 Comprehensive report saved\n")
-
     # Generate PDF versions
     _log("Generating PDF reports with formatted output...")
-    results_dict = {
-        'policy_name': policy_name,
-        'gap_analysis': gap_analysis,
-        'revised_policy': revised_policy,
-        'roadmap': roadmap,
-        'executive_summary': exec_summary
-    }
-
+    
+    pdf_files = []
     try:
         pdf_files = generate_all_pdfs(results_dict, output_base)
         for pdf_file in pdf_files:
-            _log(f"  \u2713 PDF saved: {Path(pdf_file).name}")
+            _log(f"  ✓ PDF saved: {Path(pdf_file).name}")
     except Exception as e:
-        _log(f"  \u26a0 PDF generation failed: {e}")
-        _log(f"  Note: Text reports are still available")
+        _log(f"  ⚠ PDF generation failed: {e}")
+    
+    # Create ZIP archive with all reports
+    _log("Creating ZIP archive...")
+    try:
+        import zipfile
+        zip_path = f"{output_base}_all_reports.zip"
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for file_path in docx_files + pdf_files:
+                if os.path.exists(file_path):
+                    zipf.write(file_path, os.path.basename(file_path))
+        _log(f"  ✓ ZIP archive created: {Path(zip_path).name}")
+    except Exception as e:
+        _log(f"  ⚠ ZIP creation failed: {e}")
 
     _log(f"\n{'='*60}")
     _log("ANALYSIS COMPLETE")
@@ -176,6 +195,7 @@ END OF REPORT
     return {
         'policy_name': policy_name,
         'gap_analysis': gap_analysis,
+        'vulnerability_analysis': vulnerability_analysis,
         'revised_policy': revised_policy,
         'roadmap': roadmap,
         'executive_summary': exec_summary,

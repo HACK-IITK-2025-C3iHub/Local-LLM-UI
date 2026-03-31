@@ -19,6 +19,10 @@ models/*
 output/*
 !output/.gitkeep
 
+# Vulnerability analysis files (hidden from users)
+vulnerabilities/*
+!vulnerabilities/.gitkeep
+
 # Upload files
 uploads/*
 !uploads/.gitkeep

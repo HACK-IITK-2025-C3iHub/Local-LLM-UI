@@ -10,6 +10,75 @@ MAX_PROMPT_SIZE = 100000  # 100KB
 ALLOWED_MODELS = {'gemma3:4b', 'gemma3:1b', 'gemma3:12b', 'llama3:8b', 'mistral:7b'}
 
 
+def sanitize_input(text: str, max_length: int = 50000) -> str:
+    """Sanitize user input to prevent prompt injection, SSRF, and stealth attacks.
+    
+    Args:
+        text: Input text to sanitize
+        max_length: Maximum allowed length
+    
+    Returns:
+        Sanitized text
+    """
+    # Truncate if too long
+    if len(text) > max_length:
+        text = text[:max_length] + "\n\n[TRUNCATED - Content exceeded size limit]"
+    
+    # Remove or escape potential prompt injection patterns
+    dangerous_patterns = [
+        "=== IGNORE",
+        "IGNORE ALL PREVIOUS",
+        "IGNORE ABOVE",
+        "DISREGARD",
+        "NEW INSTRUCTIONS",
+        "SYSTEM:",
+        "ADMIN MODE",
+        "<|im_start|>",
+        "<|im_end|>",
+        "[INST]",
+        "[/INST]",
+        "<|system|>",
+        "<|user|>",
+        "<|assistant|>",
+    ]
+    
+    text_upper = text.upper()
+    for pattern in dangerous_patterns:
+        if pattern in text_upper:
+            # Replace with safe version
+            text = text.replace(pattern, f"[REMOVED: {pattern}]")
+            text = text.replace(pattern.lower(), f"[REMOVED: {pattern.lower()}]")
+            text = text.replace(pattern.title(), f"[REMOVED: {pattern.title()}]")
+    
+    # Block SSRF attempts - remove URLs with suspicious protocols or internal IPs
+    import re
+    
+    # Block file:// protocol
+    text = re.sub(r'file://[^\s<>"\')]+', '[REMOVED: FILE_PROTOCOL_URL]', text, flags=re.IGNORECASE)
+    
+    # Block cloud metadata endpoints
+    text = re.sub(r'https?://169\.254\.169\.254[^\s<>"\')]*', '[REMOVED: CLOUD_METADATA_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://metadata\.google\.internal[^\s<>"\')]*', '[REMOVED: CLOUD_METADATA_URL]', text, flags=re.IGNORECASE)
+    
+    # Block localhost and internal IP ranges
+    text = re.sub(r'https?://localhost[:\d]*[^\s<>"\')]*', '[REMOVED: LOCALHOST_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://127\.0\.0\.1[:\d]*[^\s<>"\')]*', '[REMOVED: LOCALHOST_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://\[::1\][^\s<>"\')]*', '[REMOVED: LOCALHOST_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://\[::ffff:127\.0\.0\.1\][^\s<>"\')]*', '[REMOVED: LOCALHOST_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://10\.[\d.]+[:\d]*[^\s<>"\')]*', '[REMOVED: INTERNAL_IP_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://192\.168\.[\d.]+[:\d]*[^\s<>"\')]*', '[REMOVED: INTERNAL_IP_URL]', text, flags=re.IGNORECASE)
+    text = re.sub(r'https?://172\.(1[6-9]|2[0-9]|3[0-1])\.[\d.]+[:\d]*[^\s<>"\')]*', '[REMOVED: INTERNAL_IP_URL]', text, flags=re.IGNORECASE)
+    
+    # Block HTML comments that might hide injection attempts
+    text = re.sub(r'<!--.*?-->', '[REMOVED: HTML_COMMENT]', text, flags=re.DOTALL)
+    
+    # Block suspicious markdown image/link patterns (data exfiltration)
+    text = re.sub(r'!\[[^\]]*\]\(https?://[^)]+\)', '[REMOVED: MARKDOWN_IMAGE]', text)
+    text = re.sub(r'\[[^\]]*\]\(javascript:[^)]+\)', '[REMOVED: JAVASCRIPT_LINK]', text, flags=re.IGNORECASE)
+    
+    return text
+
+
 def load_nist_framework(framework_path):
     """Load framework reference data from TXT or PDF."""
     from utils import read_policy_document
@@ -65,7 +134,12 @@ def call_local_llm(prompt, model="gemma3:4b"):
         if result.returncode != 0:
             raise RuntimeError(f"LLM execution failed: {result.stderr}")
         
-        return result.stdout.strip()
+        output = result.stdout.strip()
+        
+        # Validate output to prevent data exfiltration
+        output = _validate_llm_output(output)
+        
+        return output
         
     except subprocess.TimeoutExpired:
         raise RuntimeError(f"LLM execution timed out after {LLM_TIMEOUT} seconds. Try a shorter policy.")
@@ -73,6 +147,33 @@ def call_local_llm(prompt, model="gemma3:4b"):
         raise RuntimeError("Ollama not found. Please install from: https://ollama.ai/download")
     except Exception as e:
         raise RuntimeError(f"LLM execution failed: {e}")
+
+
+def _validate_llm_output(output: str) -> str:
+    """Validate LLM output to prevent data exfiltration attempts.
+    
+    Args:
+        output: Raw LLM output
+    
+    Returns:
+        Sanitized output
+    """
+    import re
+    
+    # Remove any URLs that might be used for data exfiltration
+    output = re.sub(r'https?://[^\s<>"\')]+', '[REMOVED: EXTERNAL_URL]', output)
+    
+    # Remove markdown images (common exfiltration vector)
+    output = re.sub(r'!\[[^\]]*\]\([^)]+\)', '[REMOVED: IMAGE_LINK]', output)
+    
+    # Remove HTML img tags
+    output = re.sub(r'<img[^>]*>', '[REMOVED: IMG_TAG]', output, flags=re.IGNORECASE)
+    
+    # Remove DNS exfiltration attempts (e.g., nslookup commands)
+    output = re.sub(r'nslookup\s+[^\s]+', '[REMOVED: DNS_COMMAND]', output, flags=re.IGNORECASE)
+    output = re.sub(r'dig\s+[^\s]+', '[REMOVED: DNS_COMMAND]', output, flags=re.IGNORECASE)
+    
+    return output
 
 
 def analyze_policy_gaps(policy_content, nist_framework, framework='nist'):
@@ -87,11 +188,9 @@ def analyze_policy_gaps(policy_content, nist_framework, framework='nist'):
     }
     framework_name = framework_names.get(framework, 'NIST Cybersecurity Framework')
     
-    # Truncate policy if too large
-    MAX_POLICY_SIZE = 50000  # ~50KB
-    if len(policy_content) > MAX_POLICY_SIZE:
-        print(f"WARNING: Policy is large ({len(policy_content)} chars). Truncating to {MAX_POLICY_SIZE} chars.")
-        policy_content = policy_content[:MAX_POLICY_SIZE] + "\n\n[TRUNCATED - Policy exceeded size limit]"
+    # Sanitize inputs to prevent prompt injection
+    policy_content = sanitize_input(policy_content, max_length=50000)
+    nist_framework = sanitize_input(nist_framework, max_length=100000)
     
     prompt = f"""You are an expert cybersecurity policy analyst with deep knowledge of compliance frameworks and industry best practices. Your task is to perform a comprehensive gap analysis by comparing an organizational cybersecurity policy against the {framework_name} standards.
 
@@ -104,6 +203,7 @@ def analyze_policy_gaps(policy_content, nist_framework, framework='nist'):
 6. Be thorough but concise - focus on substantive issues
 7. Compare actual policy language against framework requirements
 8. Look for both missing controls AND inadequate implementations
+9. DO NOT add conversational phrases like "Let me know if you want me to..." or "Would you like me to..." - provide ONLY the analysis report
 
 === FRAMEWORK STANDARDS (REFERENCE) ===
 {nist_framework}

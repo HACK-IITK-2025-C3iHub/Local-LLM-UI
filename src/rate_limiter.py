@@ -43,7 +43,7 @@ class Job:
         self.framework = framework
         self.status = 'queued'          # queued | running | done | error
         self.progress_stage = 0
-        self.progress_total = 6
+        self.progress_total = 7
         self.result = None              # dict from analyze_policy()
         self.error_msg = None
         self.submitted_at = datetime.now()
@@ -63,7 +63,7 @@ class Job:
         job.framework = data.get('framework', 'nist')
         job.status = data['status']
         job.progress_stage = data.get('progress_stage', 0)
-        job.progress_total = data.get('progress_total', 6)
+        job.progress_total = data.get('progress_total', 7)
         job.result = data.get('result')
         job.error_msg = data.get('error_msg')
         job.submitted_at = datetime.fromisoformat(data['submitted_at']) if data.get('submitted_at') else None
@@ -260,11 +260,13 @@ class JobQueue:
                 output_base = Path(job.result['output_base'])
                 # Check if at least one output file exists
                 has_files = False
-                for suffix in ['_gap_analysis.txt', '_gap_analysis.pdf', 
-                              '_revised_policy.txt', '_revised_policy.pdf',
-                              '_roadmap.txt', '_roadmap.pdf',
-                              '_executive_summary.txt', '_executive_summary.pdf',
-                              '_comprehensive_report.txt', '_comprehensive_report.pdf']:
+                for suffix in ['_gap_analysis.docx', '_gap_analysis.pdf', 
+                              '_vulnerability_analysis.docx', '_vulnerability_analysis.pdf',
+                              '_revised_policy.docx', '_revised_policy.pdf',
+                              '_roadmap.docx', '_roadmap.pdf',
+                              '_executive_summary.docx', '_executive_summary.pdf',
+                              '_comprehensive_report.docx', '_comprehensive_report.pdf',
+                              '_all_reports.zip']:
                     if Path(f"{output_base}{suffix}").exists():
                         has_files = True
                         break
@@ -298,11 +300,13 @@ class JobQueue:
                 output_base = Path(job.result['output_base'])
                 # Check if at least one output file exists
                 has_files = False
-                for suffix in ['_gap_analysis.txt', '_gap_analysis.pdf', 
-                              '_revised_policy.txt', '_revised_policy.pdf',
-                              '_roadmap.txt', '_roadmap.pdf',
-                              '_executive_summary.txt', '_executive_summary.pdf',
-                              '_comprehensive_report.txt', '_comprehensive_report.pdf']:
+                for suffix in ['_gap_analysis.docx', '_gap_analysis.pdf', 
+                              '_vulnerability_analysis.docx', '_vulnerability_analysis.pdf',
+                              '_revised_policy.docx', '_revised_policy.pdf',
+                              '_roadmap.docx', '_roadmap.pdf',
+                              '_executive_summary.docx', '_executive_summary.pdf',
+                              '_comprehensive_report.docx', '_comprehensive_report.pdf',
+                              '_all_reports.zip']:
                     if Path(f"{output_base}{suffix}").exists():
                         has_files = True
                         break
@@ -400,11 +404,13 @@ class JobQueue:
                     if j.status == 'done' and j.result and 'output_base' in j.result:
                         output_base = Path(j.result['output_base'])
                         has_files = False
-                        for suffix in ['_gap_analysis.txt', '_gap_analysis.pdf', 
-                                      '_revised_policy.txt', '_revised_policy.pdf',
-                                      '_roadmap.txt', '_roadmap.pdf',
-                                      '_executive_summary.txt', '_executive_summary.pdf',
-                                      '_comprehensive_report.txt', '_comprehensive_report.pdf']:
+                        for suffix in ['_gap_analysis.docx', '_gap_analysis.pdf', 
+                              '_vulnerability_analysis.docx', '_vulnerability_analysis.pdf',
+                              '_revised_policy.docx', '_revised_policy.pdf',
+                              '_roadmap.docx', '_roadmap.pdf',
+                              '_executive_summary.docx', '_executive_summary.pdf',
+                              '_comprehensive_report.docx', '_comprehensive_report.pdf',
+                              '_all_reports.zip']:
                             if Path(f"{output_base}{suffix}").exists():
                                 has_files = True
                                 break
@@ -441,11 +447,13 @@ class JobQueue:
                             if output_base:
                                 output_base_path = Path(output_base)
                                 has_files = False
-                                for suffix in ['_gap_analysis.txt', '_gap_analysis.pdf', 
-                                              '_revised_policy.txt', '_revised_policy.pdf',
-                                              '_roadmap.txt', '_roadmap.pdf',
-                                              '_executive_summary.txt', '_executive_summary.pdf',
-                                              '_comprehensive_report.txt', '_comprehensive_report.pdf']:
+                                for suffix in ['_gap_analysis.docx', '_gap_analysis.pdf', 
+                              '_vulnerability_analysis.docx', '_vulnerability_analysis.pdf',
+                              '_revised_policy.docx', '_revised_policy.pdf',
+                              '_roadmap.docx', '_roadmap.pdf',
+                              '_executive_summary.docx', '_executive_summary.pdf',
+                              '_comprehensive_report.docx', '_comprehensive_report.pdf',
+                              '_all_reports.zip']:
                                     if Path(f"{output_base_path}{suffix}").exists():
                                         has_files = True
                                         break

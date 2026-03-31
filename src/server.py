@@ -45,16 +45,17 @@ _DOC_TYPE_MAP = {
 }
 
 _SUFFIXES = [
-    ('_gap_analysis.txt',         'Gap Analysis'),
+    ('_gap_analysis.docx',        'Gap Analysis'),
     ('_gap_analysis.pdf',         'Gap Analysis'),
-    ('_revised_policy.txt',       'Revised Policy'),
+    ('_revised_policy.docx',      'Revised Policy'),
     ('_revised_policy.pdf',       'Revised Policy'),
-    ('_roadmap.txt',              'Improvement Roadmap'),
+    ('_roadmap.docx',             'Improvement Roadmap'),
     ('_roadmap.pdf',              'Improvement Roadmap'),
-    ('_executive_summary.txt',    'Executive Summary'),
+    ('_executive_summary.docx',   'Executive Summary'),
     ('_executive_summary.pdf',    'Executive Summary'),
-    ('_comprehensive_report.txt', 'Comprehensive Report'),
+    ('_comprehensive_report.docx','Comprehensive Report'),
     ('_comprehensive_report.pdf', 'Comprehensive Report'),
+    ('_all_reports.zip',          'All Reports (ZIP Archive)'),
 ]
 
 
@@ -73,6 +74,7 @@ def _collect_output_files(result):
                 'path':     str(rel_path).replace('\\', '/'),
                 'size':     f"{fpath.stat().st_size / 1024:.1f} KB",
                 'is_pdf':   fpath.suffix == '.pdf',
+                'is_zip':   fpath.suffix == '.zip',
                 'doc_type': doc_type,
             })
     return files
@@ -111,6 +113,14 @@ def create_app():
     # Ensure directories exist
     UPLOAD_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(exist_ok=True)
+    
+    # Create vulnerabilities directory for hidden vulnerability analysis PDFs
+    VULN_DIR = BASE_DIR / 'vulnerabilities'
+    VULN_DIR.mkdir(exist_ok=True)
+    
+    # Create data directory for job history
+    DATA_DIR = BASE_DIR / 'data'
+    DATA_DIR.mkdir(exist_ok=True)
 
     # Initialize the job queue and wire up the analysis function
     queue = JobQueue()
@@ -159,8 +169,15 @@ def create_app():
             flash('No file selected.', 'error')
             return redirect(url_for('index'))
 
+        # Import sanitization functions
+        from utils import sanitize_filename
+        
+        # Sanitize filename to prevent path traversal and encoding attacks
+        original_filename = file.filename
+        safe_filename_base = sanitize_filename(original_filename)
+        
         # Validate extension
-        ext = Path(file.filename).suffix.lower()
+        ext = Path(safe_filename_base).suffix.lower()
         if ext not in ALLOWED_EXTENSIONS:
             flash(
                 f'Unsupported file type: {ext}. '
@@ -180,7 +197,7 @@ def create_app():
         job_upload_dir = UPLOAD_DIR / job_id
         job_upload_dir.mkdir(exist_ok=True)
         
-        safe_name = secure_filename(file.filename)
+        safe_name = secure_filename(safe_filename_base)
         if not safe_name:
             safe_name = f"policy_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
 
@@ -192,6 +209,22 @@ def create_app():
             counter += 1
 
         file.save(str(upload_path))
+        
+        # Validate file magic bytes after upload
+        from utils import validate_file_magic_bytes
+        try:
+            if not validate_file_magic_bytes(str(upload_path), ext):
+                upload_path.unlink(missing_ok=True)
+                flash(
+                    f'File validation failed: Magic bytes do not match {ext} extension. '
+                    f'Possible file type mismatch or security threat.',
+                    'error'
+                )
+                return redirect(url_for('index'))
+        except Exception as e:
+            upload_path.unlink(missing_ok=True)
+            flash(f'File validation error: {str(e)}', 'error')
+            return redirect(url_for('index'))
 
         # Create job-specific output directory
         job_output_dir = OUTPUT_DIR / job_id
@@ -204,7 +237,7 @@ def create_app():
                 job_id=job_id,
                 ip=client_ip,
                 policy_path=str(upload_path),
-                policy_filename=file.filename,
+                policy_filename=original_filename,  # Use original for display
                 output_dir=str(job_output_dir),
                 framework=framework,
             )
@@ -254,7 +287,14 @@ def create_app():
             abort(404)
         
         # Determine correct MIME type
-        mime_type = 'application/pdf' if fpath.suffix == '.pdf' else 'text/plain'
+        if fpath.suffix == '.pdf':
+            mime_type = 'application/pdf'
+        elif fpath.suffix == '.docx':
+            mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        elif fpath.suffix == '.zip':
+            mime_type = 'application/zip'
+        else:
+            mime_type = 'application/octet-stream'
         
         response = send_from_directory(str(fpath.parent), safe, as_attachment=True)
         response.headers['Content-Type'] = mime_type
@@ -295,6 +335,10 @@ def create_app():
             abort(403)
         if not fpath.exists():
             abort(404)
+        
+        # Only allow PDF viewing inline
+        if fpath.suffix != '.pdf':
+            abort(400, 'Only PDF files can be viewed inline')
         
         response = send_from_directory(str(fpath.parent), safe, as_attachment=False)
         response.headers['Content-Type'] = 'application/pdf'

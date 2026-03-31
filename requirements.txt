@@ -11,6 +11,11 @@ python-docx>=1.0.0
 # PDF Generation
 reportlab>=4.0.0
 
+# Security - File Type Validation (MIME type detection)
+# For Windows: python-magic-bin includes libmagic DLL
+# For Linux/Mac: install system libmagic first, then python-magic
+python-magic-bin==0.4.14; platform_system == "Windows"
+
 # Text Processing
 
 # Web Server (LAN hosting)

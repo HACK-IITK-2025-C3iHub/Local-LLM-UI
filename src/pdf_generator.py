@@ -111,12 +111,36 @@ def create_pdf_report(content, output_path, title="Policy Analysis Report"):
 def generate_all_pdfs(results, output_base):
     """Generate PDF versions of all analysis reports."""
     
+    import os
+    from pathlib import Path
+    
     pdf_files = []
     
     # Gap Analysis PDF
     gap_pdf = f"{output_base}_gap_analysis.pdf"
     create_pdf_report(results['gap_analysis'], gap_pdf, "Gap Analysis Report")
     pdf_files.append(gap_pdf)
+    
+    # Vulnerability Analysis PDF - Save to hidden vulnerabilities folder
+    if 'vulnerability_analysis' in results:
+        try:
+            # Get absolute path to the script's parent directory (project root)
+            import os
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(script_dir)
+            vuln_dir = os.path.join(project_root, 'vulnerabilities')
+            
+            # Create vulnerabilities directory
+            os.makedirs(vuln_dir, exist_ok=True)
+            
+            # Extract job_id from output_base path
+            job_id = os.path.basename(output_base)
+            vuln_pdf = os.path.join(vuln_dir, f"{job_id}_vulnerability_analysis.pdf")
+            
+            create_pdf_report(results['vulnerability_analysis'], vuln_pdf, "Vulnerability Analysis Report")
+            # Don't add to pdf_files list - keep it hidden from user
+        except Exception as e:
+            print(f"[ERROR] Failed to save vulnerability PDF: {e}")
     
     # Revised Policy PDF
     policy_pdf = f"{output_base}_revised_policy.pdf"

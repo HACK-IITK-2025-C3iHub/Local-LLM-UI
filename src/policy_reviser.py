@@ -1,10 +1,15 @@
 """Policy revision module for generating improved policy versions."""
 
-from gap_analyzer import call_local_llm
+from gap_analyzer import call_local_llm, sanitize_input
 
 
 def revise_policy(policy_content, gap_analysis, nist_framework):
     """Generate revised policy addressing identified gaps."""
+    
+    # Sanitize all inputs to prevent prompt injection and SSRF
+    policy_content = sanitize_input(policy_content, max_length=50000)
+    gap_analysis = sanitize_input(gap_analysis, max_length=100000)
+    nist_framework = sanitize_input(nist_framework, max_length=100000)
     
     prompt = f"""You are a cybersecurity policy expert. Revise the organizational policy below to address ALL identified gaps and align with NIST Cybersecurity Framework standards.
 
@@ -31,6 +36,10 @@ Provide the complete revised policy document with all improvements integrated.""
 
 def generate_revision_summary(original_policy, revised_policy):
     """Generate summary of changes between original and revised policy."""
+    
+    # Sanitize inputs
+    original_policy = sanitize_input(original_policy, max_length=50000)
+    revised_policy = sanitize_input(revised_policy, max_length=50000)
     
     prompt = f"""Compare the original and revised policies below and provide a concise summary of key changes and improvements made.
 
