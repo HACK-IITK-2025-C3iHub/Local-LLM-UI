@@ -114,8 +114,8 @@ def create_app():
     UPLOAD_DIR.mkdir(exist_ok=True)
     OUTPUT_DIR.mkdir(exist_ok=True)
     
-    # Create vulnerabilities directory for hidden vulnerability analysis PDFs
-    VULN_DIR = BASE_DIR / 'vulnerabilities'
+    # Create risk_analysis directory for hidden vulnerability analysis PDFs
+    VULN_DIR = BASE_DIR / 'risk_analysis'
     VULN_DIR.mkdir(exist_ok=True)
     
     # Create data directory for job history

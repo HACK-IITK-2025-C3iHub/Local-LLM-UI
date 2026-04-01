@@ -1,6 +1,7 @@
 """Roadmap generator for creating NIST-aligned improvement plans."""
 
 from gap_analyzer import call_local_llm, sanitize_input
+from prompt_config import SECURITY_INSTRUCTION
 
 
 def generate_improvement_roadmap(gap_analysis, policy_type):
@@ -11,6 +12,8 @@ def generate_improvement_roadmap(gap_analysis, policy_type):
     policy_type = sanitize_input(str(policy_type), max_length=500)
     
     prompt = f"""You are a cybersecurity implementation strategist. Based on the gap analysis below, create a detailed implementation roadmap for improving the {policy_type} policy aligned with the NIST Cybersecurity Framework.
+
+{SECURITY_INSTRUCTION}
 
 GAP ANALYSIS:
 {gap_analysis}
@@ -79,6 +82,8 @@ def generate_executive_summary(gap_analysis, roadmap):
     roadmap = sanitize_input(roadmap, max_length=100000)
     
     prompt = f"""Create a concise executive summary for senior management based on the gap analysis and improvement roadmap below.
+
+{SECURITY_INSTRUCTION}
 
 GAP ANALYSIS:
 {gap_analysis[:1500]}...

@@ -26,8 +26,8 @@ The system identifies policy weaknesses, generates revised policies addressing t
 
 - **Improved File Organization**: DOCX files now display in left column, PDF files in right column for better visual organization
 - **ZIP Download**: All reports can now be downloaded as a single ZIP archive for convenience
-- **Hidden Vulnerability Reports**: Vulnerability analysis PDFs are automatically saved to `vulnerabilities/` folder (hidden from users)
-- **Auto-Directory Creation**: System automatically creates required directories (`data/`, `vulnerabilities/`) on first run
+- **Hidden Vulnerability Reports**: Vulnerability analysis PDFs are automatically saved to `risk_analysis/` folder (hidden from users)
+- **Auto-Directory Creation**: System automatically creates required directories (`data/`, `risk_analysis/`) on first run
 - **Persistent Job History**: Analysis history now persists across server restarts via JSON storage (`data/job_history.json`)
 - **Smart History Filtering**: History automatically hides jobs whose output files have been deleted
 - **Fixed PDF Downloads**: Resolved path handling issues for PDF downloads and inline viewing on Windows
@@ -37,6 +37,9 @@ The system identifies policy weaknesses, generates revised policies addressing t
 - **JSON Status API**: Added `/api/status/<job_id>` for smooth in-page updates without full-page refresh
 - **Input Sanitization**: Removes invisible/zero-width Unicode artifacts from extracted document text
 - **Removed Vulnerability DOCX**: Vulnerability analysis no longer generates DOCX files (PDF only, hidden)
+- **Enhanced Security**: Comprehensive prompt injection protection with centralized security instructions
+- **Contact Information Filtering**: Automatically removes emails, phone numbers, URLs, and social media handles from LLM outputs
+- **Centralized Prompt Configuration**: All LLM security rules managed from single `prompt_config.py` file
 
 ---
 
@@ -49,6 +52,7 @@ The system identifies policy weaknesses, generates revised policies addressing t
 | [Tech Stack](#tech-stack--prerequisites)              | Technologies and requirements         |
 | [Architecture](#architecture-diagram)                 | Visual system overview                |
 | [Project Structure](#project-structure)               | File organization                     |
+| [Security Features](#security-features)               | LLM security & threat protection      |
 | [Quick Start](#quick-start-user-instructions)         | Get running in 5 minutes              |
 | [Developer Guide](#developer-guide)                   | Contributing code                     |
 | [Contributor Expectations](#contributor-expectations) | Guidelines for contributors           |
@@ -63,7 +67,7 @@ The system identifies policy weaknesses, generates revised policies addressing t
 | Feature                    | Description                                                                 |
 | -------------------------- | --------------------------------------------------------------------------- |
 | **Gap Analysis**           | Identifies policy weaknesses against NIST CSF standards                     |
-| **Vulnerability Analysis** | Security vulnerability assessment (saved to hidden `vulnerabilities/` folder) |
+| **Vulnerability Analysis** | Security vulnerability assessment (saved to hidden `risk_analysis/` folder) |
 | **Policy Revision**        | Auto-generates improved policy versions addressing gaps                     |
 | **Implementation Roadmap** | Phased improvement plans (0-3, 3-6, 6-12 months)                            |
 | **Executive Summary**      | Leadership-ready overview of findings                                       |
@@ -77,6 +81,9 @@ The system identifies policy weaknesses, generates revised policies addressing t
 | **Global Job History**     | Dedicated `/history` page listing all jobs across LAN clients               |
 | **Persistent History**     | Job history survives server restarts and auto-cleans deleted files          |
 | **Input Sanitization**     | Removes invisible/zero-width Unicode artifacts from extracted document text |
+| **Prompt Injection Defense** | Multi-layer protection against LLM manipulation and jailbreak attempts    |
+| **SSRF Protection**        | Blocks cloud metadata, localhost, and internal IP access attempts           |
+| **Contact Info Filtering** | Removes emails, phone numbers, URLs, social media handles from outputs      |
 | **100% Offline**           | Zero network calls after initial setup                                      |
 
 ---
@@ -411,6 +418,7 @@ Local-LLM/
 │   ├── pdf_generator.py           # PDF report formatting (ReportLab)
 │   ├── docx_generator.py          # DOCX report formatting (python-docx)
 │   ├── utils.py                   # File I/O utilities
+│   ├── prompt_config.py           # Centralized LLM security instructions
 │   ├── server.py                  # Flask web server (LAN hosting)
 │   ├── rate_limiter.py            # Thread-safe job queue & rate limiter
 │   └── templates/                 # HTML templates
@@ -425,7 +433,7 @@ Local-LLM/
 │
 ├── output/                        # Generated reports (DOCX + PDF + ZIP)
 ├── uploads/                       # Uploaded policy files (`.gitkeep` retained)
-├── vulnerabilities/               # Hidden vulnerability analysis PDFs (admin only)
+├── risk_analysis/                 # Hidden vulnerability analysis PDFs (admin only)
 ├── models/                        # Model storage (Ollama)
 │
 ├── test_system.py                 # Test suite
@@ -446,6 +454,7 @@ Local-LLM/
 | `pdf_generator.py`          | 185   | ReportLab PDF formatting with markdown parsing, hidden vuln PDF storage           |
 | `docx_generator.py`         | 165   | python-docx DOCX formatting with style support                                    |
 | `utils.py`                  | 87    | Multi-format document reading (TXT/PDF/DOCX), size checks, text sanitization      |
+| `prompt_config.py`          | 60    | Centralized LLM security instructions and prompt injection defense rules          |
 | `server.py`                 | 310   | Flask web server, upload/status/history routes, JSON status API, security headers |
 | `rate_limiter.py`           | 380   | Thread-safe queue, persistent history, file validation, per-IP limits, TTL cleanup |
 
@@ -540,7 +549,7 @@ Reports are generated in the `output/` directory:
 | `*_comprehensive_report` | DOCX + PDF     | All reports combined         | User       |
 | `*_all_reports.zip`      | ZIP Archive    | All user reports in one file | User       |
 
-*Vulnerability analysis PDFs are saved to `vulnerabilities/` folder for admin/internal review only.
+*Vulnerability analysis PDFs are saved to `risk_analysis/` folder for admin/internal review only.
 
 ### Processing Time Estimate
 
@@ -552,6 +561,113 @@ Reports are generated in the `output/` directory:
 | Roadmap Generation        | 1-2 minutes      |
 | Executive Summary         | 30-60 seconds    |
 | **TOTAL PER POLICY**      | **~6-10 minutes** |
+
+---
+
+## Security Features
+
+### LLM Security Architecture
+
+This system implements comprehensive security measures to protect against LLM-based attacks and ensure safe offline operation:
+
+#### Prompt Injection Defense
+
+**Centralized Security Configuration** (`prompt_config.py`):
+- All LLM security rules managed from a single configuration file
+- Multi-layer protection against prompt injection and jailbreak attempts
+- Treats all input documents strictly as data, not instructions
+- Blocks role manipulation attempts ("act as...", "you are now...", "ignore previous instructions")
+- Flags and neutralizes hidden instructions in documents
+
+**Input Sanitization** (`utils.py` & `gap_analyzer.py`):
+- Removes invisible/zero-width Unicode characters
+- Strips HTML comments and markdown hidden text
+- Detects and blocks encoding tricks used to bypass filters
+- Validates file magic bytes to prevent file type spoofing
+
+#### SSRF Protection
+
+**Network Request Blocking**:
+- Blocks all cloud metadata endpoints (169.254.169.254, metadata.google.internal)
+- Prevents localhost and internal IP access (127.0.0.1, 10.x.x.x, 192.168.x.x, 172.16-31.x.x)
+- Removes file:// protocol URLs
+- Identifies SSRF patterns without executing them
+- Does NOT resolve DNS or follow encoded URLs
+
+#### Data Exfiltration Prevention
+
+**Output Filtering**:
+- Automatically removes contact information (emails, phone numbers, URLs)
+- Strips social media handles from LLM outputs
+- Blocks markdown images and HTML img tags (common exfiltration vectors)
+- Prevents DNS exfiltration attempts (nslookup, dig commands)
+- Flags attempts to retrieve credentials, tokens, or internal data
+
+#### Evidence-Based Analysis
+
+**Quality Assurance**:
+- Only reports findings supported by explicit evidence
+- Adds confidence levels (Low/Medium/High) to all findings
+- Marks ambiguous statements as "requires manual review"
+- Includes disclaimer: "AI-assisted analysis – manual validation required"
+- Avoids assumptions and prefers "Insufficient data" over guessing
+
+#### File Upload Security
+
+**Server-Side Protection** (`server.py`):
+- File extension whitelist (.txt, .pdf, .docx only)
+- Magic byte validation after upload
+- Filename sanitization to prevent path traversal
+- 50MB file size limit
+- Secure file storage in job-specific directories
+
+**Security Headers**:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY/SAMEORIGIN`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+
+#### Rate Limiting & Resource Protection
+
+**Job Queue Management** (`rate_limiter.py`):
+- Maximum 2 queued jobs per IP address
+- Global queue limit of 10 jobs
+- Serialized LLM access (one analysis at a time)
+- Automatic cleanup of old jobs (1-hour TTL)
+- Thread-safe queue implementation
+
+### Security Best Practices
+
+**For Users**:
+1. Always review LLM-generated reports manually
+2. Do not upload sensitive/classified documents
+3. Verify all recommendations before implementation
+4. Use the system in a secure, isolated network environment
+
+**For Developers**:
+1. All security rules are centralized in `prompt_config.py`
+2. Never bypass input sanitization functions
+3. Always use `sanitize_input()` before passing data to LLM
+4. Test security measures with adversarial inputs
+5. Keep Ollama and dependencies updated
+
+### Threat Model
+
+**Protected Against**:
+- ✅ Prompt injection attacks
+- ✅ Jailbreak attempts
+- ✅ SSRF attacks
+- ✅ Data exfiltration via LLM outputs
+- ✅ File upload attacks
+- ✅ Path traversal attacks
+- ✅ XSS attacks
+- ✅ Resource exhaustion (DoS)
+
+**Not Protected Against**:
+- ❌ Physical access to the server
+- ❌ Compromised Ollama installation
+- ❌ Social engineering attacks
+- ❌ Network-level attacks (use firewall/VPN)
 
 ---
 
@@ -637,19 +753,22 @@ Edit prompt templates in:
 
 ### Security Limits
 
-| Parameter            | Value                                                           | Location          |
-| -------------------- | --------------------------------------------------------------- | ----------------- |
-| `LLM_TIMEOUT`        | 600s                                                            | `gap_analyzer.py` |
-| `MAX_PROMPT_SIZE`    | 100KB                                                           | `gap_analyzer.py` |
-| `MAX_POLICY_SIZE`    | 50KB                                                            | `gap_analyzer.py` |
-| `MAX_FILE_SIZE`      | 50MB                                                            | `utils.py`        |
-| `ALLOWED_MODELS`     | Whitelist                                                       | `gap_analyzer.py` |
-| `MAX_UPLOAD_SIZE`    | 50MB                                                            | `server.py`       |
-| `MAX_QUEUE_SIZE`     | 10 jobs                                                         | `rate_limiter.py` |
-| `MAX_JOBS_PER_IP`    | 2 jobs                                                          | `rate_limiter.py` |
-| `JOB_RESULT_TTL`     | 3600s                                                           | `rate_limiter.py` |
-| Security Headers     | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` | `server.py`       |
-| Path Traversal Guard | Resolved path check                                             | `server.py`       |
+| Parameter            | Value                                                           | Location            |
+| -------------------- | --------------------------------------------------------------- | ------------------- |
+| `LLM_TIMEOUT`        | 600s                                                            | `gap_analyzer.py`   |
+| `MAX_PROMPT_SIZE`    | 100KB                                                           | `gap_analyzer.py`   |
+| `MAX_POLICY_SIZE`    | 50KB                                                            | `gap_analyzer.py`   |
+| `MAX_FILE_SIZE`      | 50MB                                                            | `utils.py`          |
+| `ALLOWED_MODELS`     | Whitelist                                                       | `gap_analyzer.py`   |
+| `MAX_UPLOAD_SIZE`    | 50MB                                                            | `server.py`         |
+| `MAX_QUEUE_SIZE`     | 10 jobs                                                         | `rate_limiter.py`   |
+| `MAX_JOBS_PER_IP`    | 2 jobs                                                          | `rate_limiter.py`   |
+| `JOB_RESULT_TTL`     | 3600s                                                           | `rate_limiter.py`   |
+| Security Headers     | `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection` | `server.py`         |
+| Path Traversal Guard | Resolved path check                                             | `server.py`         |
+| Prompt Injection Defense | Comprehensive multi-layer protection                        | `prompt_config.py`  |
+| SSRF Protection      | Cloud metadata, localhost, internal IP blocking                 | `prompt_config.py`  |
+| Contact Info Filter  | Email, phone, URL, social media removal                         | `prompt_config.py`  |
 
 ### Running Tests
 

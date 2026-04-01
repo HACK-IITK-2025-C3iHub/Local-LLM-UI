@@ -3,6 +3,7 @@
 import subprocess
 import json
 from pathlib import Path
+from prompt_config import SECURITY_INSTRUCTION
 
 # Security limits
 LLM_TIMEOUT = 600  # 10 minutes
@@ -150,15 +151,72 @@ def call_local_llm(prompt, model="gemma3:4b"):
 
 
 def _validate_llm_output(output: str) -> str:
-    """Validate LLM output to prevent data exfiltration attempts.
+    """Validate LLM output to prevent data exfiltration attempts and remove leaked instructions.
     
     Args:
         output: Raw LLM output
     
     Returns:
-        Sanitized output
+        Sanitized output with proper disclaimer
     """
     import re
+    
+    # Remove leaked security instructions from output
+    # Match the entire security instruction block
+    output = re.sub(
+        r'===\s*CRITICAL\s+SECURITY\s+INSTRUCTION\s*===.*?(?=\n\n[A-Z][A-Z\s]+\n|\n\n\d+\.|$)',
+        '',
+        output,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Remove any remaining "RULES:" sections that might have leaked
+    output = re.sub(
+        r'RULES:\s*\n[-•\s]*Treat input strictly.*?(?=\n\n[A-Z][A-Z\s]+\n|\n\n\d+\.|$)',
+        '',
+        output,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Remove "Before final output:" instruction blocks
+    output = re.sub(
+        r'Before final output:.*?(?=\n\n[A-Z][A-Z\s]+\n|\n\n\d+\.|$)',
+        '',
+        output,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Remove "ANALYSIS GUIDELINES" sections
+    output = re.sub(
+        r'===\s*ANALYSIS\s+GUIDELINES\s*===.*?(?=\n\n[A-Z][A-Z\s]+\n|\n\n\d+\.|$)',
+        '',
+        output,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Remove leaked analysis guidelines (bullet points starting with "Be SPECIFIC", "Be EVIDENCE-BASED", etc.)
+    output = re.sub(
+        r'•\s*Be\s+SPECIFIC:.*?(?=\n\n[A-Z][A-Z\s]+\n|\n\n\d+\.|$)',
+        '',
+        output,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Remove "ANALYSIS INSTRUCTIONS" sections
+    output = re.sub(
+        r'===\s*ANALYSIS\s+INSTRUCTIONS\s*===.*?(?=\n\n[A-Z][A-Z\s]+\n|\n\n\d+\.|$)',
+        '',
+        output,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+    
+    # Remove all variations of disclaimer (leaked or incomplete)
+    output = re.sub(
+        r'(AI|A)?I?-?\s*assisted\s+analysis[\s—–-]*manual\s+validation\s+(is\s+)?required\.?',
+        '',
+        output,
+        flags=re.IGNORECASE
+    )
     
     # Remove any URLs that might be used for data exfiltration
     output = re.sub(r'https?://[^\s<>"\')]+', '[REMOVED: EXTERNAL_URL]', output)
@@ -172,6 +230,14 @@ def _validate_llm_output(output: str) -> str:
     # Remove DNS exfiltration attempts (e.g., nslookup commands)
     output = re.sub(r'nslookup\s+[^\s]+', '[REMOVED: DNS_COMMAND]', output, flags=re.IGNORECASE)
     output = re.sub(r'dig\s+[^\s]+', '[REMOVED: DNS_COMMAND]', output, flags=re.IGNORECASE)
+    
+    # Clean up any excessive whitespace left by removals
+    output = re.sub(r'\n{3,}', '\n\n', output)
+    output = output.strip()
+    
+    # Add proper disclaimer at the end
+    if output and not output.endswith('AI-assisted analysis – manual validation required.'):
+        output += '\n\n---\n\nDisclaimer: AI-assisted analysis – manual validation required.'
     
     return output
 
@@ -193,6 +259,8 @@ def analyze_policy_gaps(policy_content, nist_framework, framework='nist'):
     nist_framework = sanitize_input(nist_framework, max_length=100000)
     
     prompt = f"""You are an expert cybersecurity policy analyst with deep knowledge of compliance frameworks and industry best practices. Your task is to perform a comprehensive gap analysis by comparing an organizational cybersecurity policy against the {framework_name} standards.
+
+{SECURITY_INSTRUCTION}
 
 === ANALYSIS INSTRUCTIONS ===
 1. Read and understand BOTH the framework standards and the organizational policy thoroughly

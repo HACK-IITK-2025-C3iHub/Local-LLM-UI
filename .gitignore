@@ -20,8 +20,8 @@ output/*
 !output/.gitkeep
 
 # Vulnerability analysis files (hidden from users)
-vulnerabilities/*
-!vulnerabilities/.gitkeep
+risk_analysis/*
+!risk_analysis/.gitkeep
 
 # Upload files
 uploads/*

@@ -121,24 +121,24 @@ def generate_all_pdfs(results, output_base):
     create_pdf_report(results['gap_analysis'], gap_pdf, "Gap Analysis Report")
     pdf_files.append(gap_pdf)
     
-    # Vulnerability Analysis PDF - Save to hidden vulnerabilities folder
+    # Vulnerability Analysis PDF - Save to hidden risk_analysis folder
     if 'vulnerability_analysis' in results:
         try:
             # Get absolute path to the script's parent directory (project root)
             import os
             script_dir = os.path.dirname(os.path.abspath(__file__))
             project_root = os.path.dirname(script_dir)
-            vuln_dir = os.path.join(project_root, 'vulnerabilities')
+            vuln_dir = os.path.join(project_root, 'risk_analysis')
             
-            # Create vulnerabilities directory
+            # Create risk_analysis directory
             os.makedirs(vuln_dir, exist_ok=True)
             
             # Extract job_id from output_base path
             job_id = os.path.basename(output_base)
-            vuln_pdf = os.path.join(vuln_dir, f"{job_id}_vulnerability_analysis.pdf")
+            vuln_pdf = os.path.join(vuln_dir, f"{job_id}_risk_analysis.pdf")
             
             create_pdf_report(results['vulnerability_analysis'], vuln_pdf, "Vulnerability Analysis Report")
-            print(f"  ✓ Vulnerability PDF saved (admin only): vulnerabilities/{job_id}_vulnerability_analysis.pdf")
+            print(f"  ✓ Vulnerability PDF saved (admin only): risk_analysis/{job_id}_risk_analysis.pdf")
             # Don't add to pdf_files list - keep it hidden from user
         except Exception as e:
             print(f"  ⚠ Vulnerability PDF generation failed: {e}")
